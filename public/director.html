@@ -3,221 +3,308 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LIGHTSHOW DIRECTOR</title>
+<title>NL Regiment — Director Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="/socket.io/socket.io.js"></script>
 <style>
+@font-face {
+  font-family: 'NLRegiment';
+  src: url('/NLRegiment.otf') format('opentype');
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --bg:      #080b0f;
-  --panel:   #0d1117;
-  --border:  rgba(255,255,255,0.07);
-  --accent:  #e8ff00;
-  --accent2: #00d4ff;
-  --red:     #ff3355;
-  --green:   #00e676;
-  --text:    #e8eaed;
-  --dim:     rgba(232,234,237,0.4);
+  --navy:    #0A2334;
+  --maroon:  #8A2433;
+  --tan:     #E0D0A6;
+  --white:   #FFFFFF;
+  --bg:      #060e18;
+  --panel:   #0a1520;
+  --panel2:  #0d1a27;
+  --border:  rgba(224,208,166,0.08);
+  --border2: rgba(224,208,166,0.14);
+  --dim:     rgba(224,208,166,0.4);
+  --green:   #4caf7d;
+  --red:     #c94050;
   --mono:    'JetBrains Mono', monospace;
 }
-html, body { width:100%; min-height:100%; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; }
+html, body { width:100%; min-height:100%; background:var(--bg); color:var(--white); font-family:'Barlow',sans-serif; -webkit-font-smoothing:antialiased; }
 .app { display:grid; grid-template-rows:auto 1fr; min-height:100vh; }
 
-/* ── LOGIN OVERLAY ── */
+/* ── LOGIN ── */
 #login-overlay {
-  position:fixed; inset:0; z-index:999;
-  background:var(--bg);
+  position:fixed; inset:0; z-index:999; background:var(--bg);
   display:flex; align-items:center; justify-content:center;
+  background-image: radial-gradient(ellipse at 50% 30%, rgba(138,36,51,0.15) 0%, transparent 60%);
 }
 .login-card {
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:12px; padding:40px;
-  width:340px; text-align:center;
+  background:var(--panel); border:1px solid var(--border2);
+  border-radius:6px; padding:44px 40px;
+  width:360px; text-align:center;
   display:flex; flex-direction:column; gap:20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
-.login-logo { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:0.12em; color:var(--accent); }
-.login-sub { font-size:12px; color:var(--dim); }
+.login-logo {
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:32px; letter-spacing:0.1em; color:var(--white);
+  margin-bottom:0;
+}
+.login-logo span { color:var(--tan); }
+.login-crest { font-size:40px; margin-bottom:-8px; }
+.login-divider { height:1px; background:var(--border); }
+.login-sub { font-size:11px; color:var(--dim); letter-spacing:0.12em; text-transform:uppercase; margin-top:-8px; }
 .login-input {
-  background:rgba(255,255,255,0.05);
-  border:1px solid var(--border);
-  border-radius:6px; padding:12px 16px;
-  color:var(--text); font-family:var(--mono); font-size:14px;
-  width:100%; outline:none; text-align:center; letter-spacing:0.1em;
+  background:rgba(255,255,255,0.04); border:1px solid var(--border2);
+  border-radius:3px; padding:12px 16px;
+  color:var(--white); font-family:var(--mono); font-size:14px;
+  width:100%; outline:none; text-align:center; letter-spacing:0.08em;
+  transition:border-color 0.2s;
 }
-.login-input:focus { border-color:rgba(232,255,0,0.3); }
+.login-input:focus { border-color:rgba(224,208,166,0.3); }
+.login-input::placeholder { color:rgba(255,255,255,0.2); }
+.login-label { font-size:9px; color:var(--dim); letter-spacing:0.15em; text-transform:uppercase; text-align:left; }
 .login-btn {
-  background:var(--accent); color:#000; border:none;
-  padding:14px; border-radius:6px;
-  font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:0.1em;
-  cursor:pointer; transition:all 0.15s;
+  background:var(--maroon); color:var(--white); border:none;
+  padding:14px; border-radius:3px;
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:18px; letter-spacing:0.12em; cursor:pointer;
+  transition:all 0.2s; box-shadow:0 4px 16px rgba(138,36,51,0.3);
 }
-.login-btn:hover { box-shadow:0 0 20px rgba(232,255,0,0.25); }
-.login-error { font-size:12px; color:var(--red); display:none; }
-.show-id-row { display:flex; gap:8px; }
-.show-id-row input { flex:1; }
-.show-id-label { font-family:var(--mono); font-size:9px; color:var(--dim); letter-spacing:0.1em; text-transform:uppercase; text-align:left; margin-bottom:-12px; }
+.login-btn:hover { box-shadow:0 6px 24px rgba(138,36,51,0.5); }
+.login-error { font-size:12px; color:var(--red); display:none; font-family:var(--mono); }
 
 /* ── HEADER ── */
 header {
   background:var(--panel); border-bottom:1px solid var(--border);
-  padding:0 24px; height:60px;
+  padding:0 24px; height:58px;
   display:flex; align-items:center; justify-content:space-between;
   position:sticky; top:0; z-index:50;
 }
 .header-left { display:flex; align-items:center; gap:16px; }
-.logo { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:0.12em; color:var(--accent); }
-.logo span { color:rgba(255,255,255,0.25); }
-.live-badge {
-  background:rgba(255,51,85,0.12); border:1px solid rgba(255,51,85,0.3);
-  color:var(--red); font-family:var(--mono); font-size:10px; letter-spacing:0.15em;
-  padding:4px 10px; border-radius:3px; display:flex; align-items:center; gap:6px;
+.logo {
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:20px; letter-spacing:0.1em; color:var(--white);
 }
-.live-badge.on { background:rgba(0,230,118,0.12); border-color:rgba(0,230,118,0.3); color:var(--green); }
-.live-dot { width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1s ease-in-out infinite; }
+.logo span { color:var(--tan); }
+.live-badge {
+  border-radius:2px; padding:4px 10px;
+  font-family:var(--mono); font-size:9px; letter-spacing:0.18em;
+  display:flex; align-items:center; gap:6px;
+  background:rgba(201,64,80,0.1); border:1px solid rgba(201,64,80,0.25); color:var(--red);
+}
+.live-badge.on { background:rgba(76,175,125,0.1); border-color:rgba(76,175,125,0.25); color:var(--green); }
+.live-dot { width:6px; height:6px; border-radius:50%; background:currentColor; animation:blink 1s ease-in-out infinite; }
 @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
 .header-right { display:flex; align-items:center; gap:20px; }
-.stat-chip { display:flex;flex-direction:column;align-items:flex-end;gap:1px; }
-.stat-value { font-family:var(--mono);font-size:18px;font-weight:500;color:var(--accent);line-height:1; }
-.stat-label { font-size:9px;color:var(--dim);letter-spacing:0.12em;text-transform:uppercase; }
-.connection-status { display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);font-family:var(--mono); }
-.conn-dot { width:8px;height:8px;border-radius:50%;background:#555; }
-.conn-dot.online { background:var(--green);box-shadow:0 0 8px var(--green); }
+.stat-chip { display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
+.stat-value { font-family:var(--mono); font-size:20px; font-weight:500; color:var(--tan); line-height:1; }
+.stat-label { font-size:9px; color:var(--dim); letter-spacing:0.12em; text-transform:uppercase; }
+.conn-status { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:10px; color:var(--dim); }
+.conn-dot { width:8px; height:8px; border-radius:50%; background:#333; transition:all 0.3s; }
+.conn-dot.online { background:var(--green); box-shadow:0 0 8px rgba(76,175,125,0.5); }
 
-/* ── MAIN GRID ── */
+/* ── MAIN ── */
 main {
-  display:grid; grid-template-columns:300px 1fr 280px;
-  gap:1px; background:var(--border);
-  height:calc(100vh - 60px); overflow:hidden;
+  display:grid; grid-template-columns:290px 1fr 272px;
+  gap:1px; background:rgba(224,208,166,0.05);
+  height:calc(100vh - 58px); overflow:hidden;
 }
-.panel { background:var(--bg); overflow-y:auto; padding:20px; }
-.panel::-webkit-scrollbar { width:4px; }
-.panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1);border-radius:2px; }
+.panel { background:var(--bg); overflow-y:auto; padding:18px; }
+.panel::-webkit-scrollbar { width:3px; }
+.panel::-webkit-scrollbar-thumb { background:rgba(224,208,166,0.1); border-radius:2px; }
 .panel-title {
-  font-family:var(--mono); font-size:9px; letter-spacing:0.2em;
+  font-family:var(--mono); font-size:8px; letter-spacing:0.22em;
   text-transform:uppercase; color:var(--dim);
-  margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);
 }
 
-/* ── LEFT ── */
-.show-state-card { background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px; }
-.show-state-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px; }
+/* ── LEFT PANEL ── */
+.show-state-card { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:14px; margin-bottom:14px; }
+.show-state-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
 .show-state-row:last-child { margin-bottom:0; }
-.show-state-label { font-size:12px;color:var(--dim); }
-.show-state-val { font-family:var(--mono);font-size:12px;color:var(--text); }
-.show-state-val.green { color:var(--green); }
-.show-state-val.yellow { color:var(--accent); }
-.big-btn { width:100%;padding:14px;border:none;border-radius:6px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.1em;cursor:pointer;transition:all 0.15s;margin-bottom:8px; }
-.big-btn:active { transform:scale(0.98); }
-.big-btn.start { background:var(--accent);color:#000; }
-.big-btn.start:hover { box-shadow:0 0 20px rgba(232,255,0,0.25); }
-.big-btn.end { background:rgba(255,51,85,0.12);color:var(--red);border:1px solid rgba(255,51,85,0.25); }
-.big-btn.end:hover { background:rgba(255,51,85,0.2); }
-.qr-section { background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center;margin-top:16px; }
-.qr-title { font-size:11px;color:var(--dim);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:12px; }
-.qr-img { width:140px;height:140px;border-radius:6px;margin-bottom:8px; }
-.qr-url { font-family:var(--mono);font-size:9px;color:var(--dim);word-break:break-all;line-height:1.5; }
-.fan-count-bar { background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:16px; }
-.fan-bar-label { font-size:11px;color:var(--dim);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.1em; }
-.fan-bar-track { background:rgba(255,255,255,0.05);border-radius:3px;height:6px;overflow:hidden;margin-bottom:6px; }
-.fan-bar-fill { height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width 0.5s; }
-.fan-bar-vals { display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--dim); }
-
-/* ── CENTER ── */
-#panel-center { display:flex;flex-direction:column;gap:24px;padding:24px; }
-.section-head { display:flex;align-items:baseline;gap:12px;margin-bottom:16px; }
-.section-title { font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.08em; }
-.section-tag { font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:0.15em;text-transform:uppercase; }
-.effects-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px; }
-.effect-btn {
-  background:var(--panel);border:1px solid var(--border);border-radius:8px;
-  padding:18px 16px 16px;cursor:pointer;transition:all 0.15s;
-  text-align:left;position:relative;overflow:hidden;
-  display:flex;flex-direction:column;gap:6px;
+.show-state-label { font-size:11px; color:var(--dim); }
+.show-state-val { font-family:var(--mono); font-size:11px; }
+.show-state-val.live  { color:var(--green); }
+.show-state-val.idle  { color:var(--tan); }
+.big-btn {
+  width:100%; padding:13px; border:none; border-radius:3px;
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:17px; letter-spacing:0.1em; cursor:pointer;
+  transition:all 0.15s; margin-bottom:8px;
 }
-.effect-btn:hover { border-color:rgba(255,255,255,0.2);transform:translateY(-1px); }
+.big-btn:active { transform:scale(0.98); }
+.big-btn.start { background:var(--maroon); color:var(--white); box-shadow:0 4px 16px rgba(138,36,51,0.3); }
+.big-btn.start:hover { box-shadow:0 6px 22px rgba(138,36,51,0.5); }
+.big-btn.end { background:rgba(201,64,80,0.08); color:var(--red); border:1px solid rgba(201,64,80,0.2); }
+.big-btn.end:hover { background:rgba(201,64,80,0.14); }
+.qr-card { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:14px; text-align:center; margin-top:14px; }
+.qr-label { font-size:9px; color:var(--dim); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:10px; }
+.qr-img { width:130px; height:130px; border-radius:4px; margin-bottom:8px; }
+.qr-url { font-family:var(--mono); font-size:8px; color:rgba(224,208,166,0.3); word-break:break-all; line-height:1.5; }
+.fans-card { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:14px; margin-top:14px; }
+.fans-label { font-size:9px; color:var(--dim); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:10px; }
+.fans-track { background:rgba(255,255,255,0.04); border-radius:2px; height:5px; overflow:hidden; margin-bottom:6px; }
+.fans-fill  { height:100%; background:var(--maroon); border-radius:2px; width:0%; transition:width 0.5s; }
+.fans-vals  { display:flex; justify-content:space-between; font-family:var(--mono); font-size:9px; color:var(--dim); }
+
+/* ── CENTER PANEL ── */
+#panel-center { display:flex; flex-direction:column; gap:20px; padding:20px 22px; }
+.section-head { display:flex; align-items:baseline; gap:10px; margin-bottom:14px; }
+.section-title { font-family:'NLRegiment','Barlow Condensed',sans-serif; font-size:22px; letter-spacing:0.06em; color:var(--white); }
+.section-tag { font-family:var(--mono); font-size:8px; color:var(--dim); letter-spacing:0.15em; text-transform:uppercase; }
+
+/* NOW PLAYING */
+.now-playing {
+  background:rgba(138,36,51,0.08); border:1px solid rgba(138,36,51,0.2);
+  border-radius:4px; padding:12px 16px;
+  display:flex; align-items:center; gap:12px;
+}
+.np-dot { width:9px; height:9px; border-radius:50%; background:var(--maroon); box-shadow:0 0 8px rgba(138,36,51,0.7); animation:blink 1.2s infinite; flex-shrink:0; }
+.np-label { font-size:9px; color:var(--dim); text-transform:uppercase; letter-spacing:0.12em; }
+.np-name  { font-family:'NLRegiment','Barlow Condensed',sans-serif; font-size:20px; letter-spacing:0.06em; color:var(--tan); }
+
+/* COLOR SECTION */
+.color-section { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:14px; }
+.color-section-title { font-size:9px; color:var(--dim); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:12px; }
+.color-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.color-swatch {
+  width:34px; height:34px; border-radius:50%; cursor:pointer;
+  border:2px solid transparent; transition:transform 0.12s, border-color 0.12s;
+  flex-shrink:0; position:relative;
+}
+.color-swatch:hover { transform:scale(1.18); }
+.color-swatch.selected { border-color:var(--white); transform:scale(1.18); }
+.color-swatch.selected::after {
+  content:''; position:absolute; inset:-5px;
+  border-radius:50%; border:1px solid rgba(255,255,255,0.3);
+}
+
+/* CUSTOM COLOR INPUT */
+.custom-color-row {
+  display:flex; align-items:center; gap:10px;
+  background:rgba(255,255,255,0.03); border:1px solid var(--border2);
+  border-radius:4px; padding:8px 12px; flex-wrap:wrap;
+}
+.custom-color-label { font-size:9px; color:var(--dim); letter-spacing:0.12em; text-transform:uppercase; min-width:40px; }
+input[type="color"] { width:32px; height:32px; border:none; background:none; cursor:pointer; border-radius:3px; padding:0; flex-shrink:0; }
+.hex-input {
+  background:transparent; border:none; outline:none;
+  font-family:var(--mono); font-size:13px; color:var(--white);
+  width:80px; letter-spacing:0.05em; text-transform:uppercase;
+}
+.hex-input::placeholder { color:rgba(255,255,255,0.2); }
+.btn-apply-color {
+  background:rgba(224,208,166,0.1); border:1px solid rgba(224,208,166,0.2);
+  color:var(--tan); padding:6px 14px; border-radius:3px;
+  font-family:'Barlow Condensed',sans-serif; font-size:12px; letter-spacing:0.1em;
+  cursor:pointer; transition:all 0.15s; margin-left:auto;
+}
+.btn-apply-color:hover { background:rgba(224,208,166,0.18); }
+.color-preview-strip {
+  height:4px; border-radius:2px; margin-top:10px;
+  background:var(--maroon); transition:background 0.2s;
+}
+
+/* EFFECTS GRID */
+.effects-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:8px; }
+.effect-btn {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:4px; padding:16px 14px 14px;
+  cursor:pointer; transition:all 0.15s; text-align:left;
+  position:relative; overflow:hidden;
+  display:flex; flex-direction:column; gap:5px;
+}
+.effect-btn::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:var(--maroon); opacity:0; transition:opacity 0.2s;
+}
+.effect-btn:hover { border-color:var(--border2); transform:translateY(-1px); }
+.effect-btn:hover::before { opacity:1; }
 .effect-btn:active { transform:scale(0.97); }
-.effect-btn.firing { animation:fire-pulse 0.3s ease; }
-@keyframes fire-pulse { 0%{box-shadow:0 0 0 rgba(232,255,0,0)}50%{box-shadow:0 0 20px rgba(232,255,0,0.5)}100%{box-shadow:0 0 0 rgba(232,255,0,0)} }
-.effect-icon { font-size:28px;margin-bottom:4px; }
-.effect-name { font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em; }
-.effect-desc { font-size:10px;color:var(--dim);line-height:1.4; }
-.effect-shortcut { position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:9px;color:var(--dim);background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:3px;padding:2px 6px; }
+.effect-btn.firing { animation:fire-pulse 0.35s ease; }
+@keyframes fire-pulse { 0%{box-shadow:0 0 0 rgba(138,36,51,0)}50%{box-shadow:0 0 24px rgba(138,36,51,0.5)}100%{box-shadow:0 0 0 rgba(138,36,51,0)} }
+.effect-icon { font-size:26px; margin-bottom:3px; }
+.effect-name { font-family:'NLRegiment','Barlow Condensed',sans-serif; font-size:17px; letter-spacing:0.06em; color:var(--white); }
+.effect-desc { font-size:9px; color:var(--dim); line-height:1.45; }
+.effect-key { position:absolute; top:8px; right:8px; font-family:var(--mono); font-size:8px; color:rgba(224,208,166,0.3); background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:2px; padding:2px 5px; }
 
-.color-section { background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px; }
-.color-row { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
-.color-swatch { width:36px;height:36px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform 0.1s,border-color 0.1s;flex-shrink:0; }
-.color-swatch:hover { transform:scale(1.15); }
-.color-swatch.selected { border-color:#fff;transform:scale(1.15); }
-.color-input-wrap { display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;flex:1;min-width:120px; }
-.color-input-wrap label { font-family:var(--mono);font-size:10px;color:var(--dim); }
-input[type="color"] { width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px; }
-.color-hex { font-family:var(--mono);font-size:12px;color:var(--text); }
+/* SEQUENCE */
+.sequence-area { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:14px; }
+.seq-timeline {
+  display:flex; gap:5px; flex-wrap:wrap; min-height:48px; align-items:center;
+  padding:8px; background:rgba(0,0,0,0.25); border-radius:3px;
+  border:1px dashed rgba(224,208,166,0.07); margin-bottom:10px;
+}
+.seq-cue {
+  background:rgba(138,36,51,0.12); border:1px solid rgba(138,36,51,0.3);
+  border-radius:3px; padding:5px 9px;
+  font-family:var(--mono); font-size:9px; color:var(--tan);
+  display:flex; align-items:center; gap:6px; cursor:default;
+  border-left:3px solid var(--maroon);
+}
+.seq-cue.active-cue { background:rgba(138,36,51,0.25); }
+.seq-cue .remove { color:rgba(201,64,80,0.5); cursor:pointer; font-size:11px; margin-left:2px; }
+.seq-empty { font-family:var(--mono); font-size:10px; color:rgba(255,255,255,0.12); }
+.seq-controls { display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+.seq-btn { padding:8px 16px; border:none; border-radius:3px; font-family:'Barlow Condensed',sans-serif; font-size:13px; letter-spacing:0.08em; cursor:pointer; transition:all 0.15s; }
+.seq-btn.run    { background:var(--green); color:#000; }
+.seq-btn.server { background:rgba(224,208,166,0.08); color:var(--tan); border:1px solid rgba(224,208,166,0.15); }
+.seq-btn.loop   { background:rgba(10,35,52,0.6); color:var(--dim); border:1px solid var(--border); }
+.seq-btn.loop.active { background:rgba(224,208,166,0.1); color:var(--tan); border-color:rgba(224,208,166,0.2); }
+.seq-btn.clear  { background:rgba(255,255,255,0.04); color:var(--dim); border:1px solid var(--border); }
+.seq-meta { font-family:var(--mono); font-size:9px; color:var(--dim); }
 
-.now-playing { background:rgba(232,255,0,0.04);border:1px solid rgba(232,255,0,0.12);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px; }
-.np-dot { width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:blink 1s infinite;flex-shrink:0; }
-.np-label { font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em; }
-.np-name { font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.06em;color:var(--accent); }
-
-.sequence-area { background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px; }
-.seq-timeline { display:flex;gap:6px;flex-wrap:wrap;min-height:52px;align-items:center;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;border:1px dashed rgba(255,255,255,0.08);margin-bottom:12px; }
-.seq-cue { background:rgba(232,255,0,0.1);border:1px solid rgba(232,255,0,0.25);border-radius:4px;padding:6px 10px;font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;position:relative;display:flex;align-items:center;gap:6px;transition:background 0.1s; }
-.seq-cue.active-cue { background:rgba(232,255,0,0.25); }
-.seq-cue .remove { color:rgba(255,51,85,0.6);margin-left:2px;font-size:12px; }
-.seq-empty { font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.15); }
-.seq-controls { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
-.seq-btn { padding:9px 18px;border:none;border-radius:5px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.08em;cursor:pointer;transition:all 0.15s; }
-.seq-btn.run { background:var(--green);color:#000; }
-.seq-btn.server-seq { background:rgba(0,212,255,0.1);color:var(--accent2);border:1px solid rgba(0,212,255,0.2); }
-.seq-btn.loop { background:rgba(0,212,255,0.1);color:var(--accent2);border:1px solid rgba(0,212,255,0.2); }
-.seq-btn.loop.active { background:rgba(0,212,255,0.2);box-shadow:0 0 8px rgba(0,212,255,0.25); }
-.seq-btn.clear { background:rgba(255,255,255,0.05);color:var(--dim);border:1px solid var(--border); }
-.seq-label { font-family:var(--mono);font-size:10px;color:var(--dim); }
-
-/* ── RIGHT ── */
-.params-section { background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px; }
-.param-row { display:flex;flex-direction:column;gap:4px;margin-bottom:12px; }
+/* ── RIGHT PANEL ── */
+.params-card { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:14px; margin-bottom:14px; }
+.param-row { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
 .param-row:last-child { margin-bottom:0; }
-.param-label { display:flex;justify-content:space-between;font-size:11px;color:var(--dim); }
-.param-label span { font-family:var(--mono);color:var(--text); }
-input[type="range"] { width:100%;height:4px;border-radius:2px;appearance:none;background:rgba(255,255,255,0.08);outline:none;cursor:pointer; }
-input[type="range"]::-webkit-slider-thumb { appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 6px rgba(232,255,0,0.4); }
+.param-label { display:flex; justify-content:space-between; font-size:10px; color:var(--dim); }
+.param-label span { font-family:var(--mono); color:var(--white); font-size:10px; }
+input[type="range"] { width:100%; height:3px; border-radius:2px; appearance:none; background:rgba(255,255,255,0.07); outline:none; cursor:pointer; }
+input[type="range"]::-webkit-slider-thumb { appearance:none; width:14px; height:14px; border-radius:50%; background:var(--tan); cursor:pointer; box-shadow:0 0 6px rgba(224,208,166,0.3); }
 
-.log-list { display:flex;flex-direction:column;gap:1px; }
-.log-entry { display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:4px;background:rgba(255,255,255,0.02);animation:log-in 0.25s ease; }
-@keyframes log-in { from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none} }
-.log-time { font-family:var(--mono);font-size:9px;color:var(--dim);min-width:45px;margin-top:2px; }
-.log-msg { font-size:11px;color:rgba(255,255,255,0.65);line-height:1.4; }
-.log-msg strong { color:var(--text); }
-.log-dot { width:6px;height:6px;border-radius:50%;margin-top:4px;flex-shrink:0; }
+.log-list { display:flex; flex-direction:column; gap:1px; }
+.log-entry { display:flex; gap:8px; align-items:flex-start; padding:7px 9px; border-radius:3px; background:rgba(255,255,255,0.015); animation:log-in 0.2s ease; }
+@keyframes log-in { from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:none} }
+.log-time { font-family:var(--mono); font-size:8px; color:var(--dim); min-width:44px; margin-top:2px; }
+.log-msg  { font-size:10px; color:rgba(255,255,255,0.55); line-height:1.45; }
+.log-msg strong { color:rgba(255,255,255,0.85); }
+.log-dot  { width:5px; height:5px; border-radius:50%; margin-top:4px; flex-shrink:0; }
 
-.toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(232,255,0,0.9);color:#000;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.1em;padding:10px 24px;border-radius:4px;opacity:0;transition:all 0.3s;z-index:999;pointer-events:none; }
-.toast.show { opacity:1;transform:translateX(-50%) translateY(0); }
+/* TOAST */
+.toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(16px); background:var(--maroon); color:var(--white); font-family:'NLRegiment','Barlow Condensed',sans-serif; font-size:15px; letter-spacing:0.12em; padding:10px 24px; border-radius:3px; opacity:0; transition:all 0.25s; z-index:999; pointer-events:none; box-shadow:0 4px 16px rgba(138,36,51,0.4); }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Tan accent line on top */
+body::before { content:''; position:fixed; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, transparent, var(--maroon) 20%, var(--tan) 50%, var(--maroon) 80%, transparent); z-index:100; }
 </style>
 </head>
 <body>
 
-<!-- ── LOGIN ── -->
+<!-- LOGIN -->
 <div id="login-overlay">
   <div class="login-card">
-    <div class="login-logo">🏟️ LIGHTSHOW</div>
-    <div class="login-sub">Director Console — Enter your credentials to connect</div>
+    <div class="login-crest">🦌</div>
+    <div class="login-logo">NL <span>Regiment</span></div>
+    <div class="login-divider"></div>
+    <div class="login-sub">Director Console</div>
     <div>
-      <div class="show-id-label">Show ID</div>
+      <div class="login-label" style="margin-bottom:6px">Show ID</div>
       <input class="login-input" id="input-show-id" type="text" value="default" placeholder="show ID">
     </div>
-    <input class="login-input" id="input-password" type="password" placeholder="Director password" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="login-btn" onclick="doLogin()">CONNECT →</button>
-    <div class="login-error" id="login-error">Incorrect password. Try again.</div>
+    <div>
+      <div class="login-label" style="margin-bottom:6px">Director Password</div>
+      <input class="login-input" id="input-password" type="password" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Connect to Show</button>
+    <div class="login-error" id="login-error">Incorrect password — try again.</div>
   </div>
 </div>
 
 <div class="app">
 <header>
   <div class="header-left">
-    <div class="logo">LIGHT<span>SHOW</span> <span style="color:rgba(255,255,255,0.1)">|</span> DIRECTOR</div>
+    <div class="logo">NL <span>Regiment</span> — Director</div>
     <div class="live-badge" id="live-badge"><div class="live-dot"></div> STANDBY</div>
   </div>
   <div class="header-right">
@@ -229,7 +316,7 @@ input[type="range"]::-webkit-slider-thumb { appearance:none;width:14px;height:14
       <div class="stat-value" id="peak-count">—</div>
       <div class="stat-label">Peak</div>
     </div>
-    <div class="connection-status">
+    <div class="conn-status">
       <div class="conn-dot" id="conn-dot"></div>
       <span id="conn-label">Disconnected</span>
     </div>
@@ -243,31 +330,29 @@ input[type="range"]::-webkit-slider-thumb { appearance:none;width:14px;height:14
     <div class="show-state-card">
       <div class="show-state-row">
         <span class="show-state-label">Status</span>
-        <span class="show-state-val yellow" id="show-status-val">STANDBY</span>
+        <span class="show-state-val idle" id="show-status-val">STANDBY</span>
       </div>
       <div class="show-state-row">
         <span class="show-state-label">Show ID</span>
-        <span class="show-state-val" id="show-id-display">—</span>
+        <span class="show-state-val" id="show-id-display" style="font-family:var(--mono)">—</span>
       </div>
       <div class="show-state-row">
         <span class="show-state-label">Duration</span>
-        <span class="show-state-val" id="show-timer">00:00</span>
+        <span class="show-state-val" id="show-timer" style="font-family:var(--mono)">00:00</span>
       </div>
     </div>
-    <button class="big-btn start" onclick="startShow()">▶ START SHOW</button>
-    <button class="big-btn end" onclick="endShow()">■ END SHOW</button>
-
-    <div class="qr-section">
-      <div class="qr-title">Fan Join QR Code</div>
-      <img class="qr-img" id="qr-img" src="" alt="QR Code loading...">
+    <button class="big-btn start" onclick="startShow()">▶ Start Show</button>
+    <button class="big-btn end"   onclick="endShow()">■ End Show</button>
+    <div class="qr-card">
+      <div class="qr-label">Fan QR Code</div>
+      <img class="qr-img" id="qr-img" src="" alt="">
       <div class="qr-url" id="qr-url">Loading...</div>
     </div>
-
-    <div class="fan-count-bar">
-      <div class="fan-bar-label">Connected Devices</div>
-      <div class="fan-bar-track"><div class="fan-bar-fill" id="fan-bar-fill"></div></div>
-      <div class="fan-bar-vals">
-        <span id="fan-bar-curr">0</span>
+    <div class="fans-card">
+      <div class="fans-label">Connected Devices</div>
+      <div class="fans-track"><div class="fans-fill" id="fans-fill"></div></div>
+      <div class="fans-vals">
+        <span id="fans-curr">0</span>
         <span>50k capacity</span>
       </div>
     </div>
@@ -275,6 +360,7 @@ input[type="range"]::-webkit-slider-thumb { appearance:none;width:14px;height:14
 
   <!-- CENTER -->
   <div class="panel" id="panel-center">
+
     <div class="now-playing">
       <div class="np-dot"></div>
       <div>
@@ -283,128 +369,138 @@ input[type="range"]::-webkit-slider-thumb { appearance:none;width:14px;height:14
       </div>
     </div>
 
+    <!-- COLOR -->
     <div class="color-section">
-      <div class="section-head" style="margin-bottom:12px">
-        <div class="section-title" style="font-size:16px">Active Color</div>
-      </div>
+      <div class="color-section-title">Active Color</div>
       <div class="color-row">
-        <div class="color-swatch selected" style="background:#ffffff" data-hex="#ffffff" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#e8ff00" data-hex="#e8ff00" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#ff3355" data-hex="#ff3355" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#00d4ff" data-hex="#00d4ff" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#ff8c00" data-hex="#ff8c00" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#a64dff" data-hex="#a64dff" onclick="selectColor(this)"></div>
-        <div class="color-swatch" style="background:#00e676" data-hex="#00e676" onclick="selectColor(this)"></div>
-        <div class="color-input-wrap">
-          <label>HEX</label>
-          <input type="color" id="custom-color" value="#ffffff" oninput="onCustomColor(this)">
-          <span class="color-hex" id="hex-display">#ffffff</span>
-        </div>
+        <div class="color-swatch selected" style="background:#ffffff" data-hex="#ffffff" onclick="selectSwatch(this)"></div>
+        <div class="color-swatch" style="background:#E0D0A6" data-hex="#E0D0A6" onclick="selectSwatch(this)" title="Heritage Tan"></div>
+        <div class="color-swatch" style="background:#8A2433" data-hex="#8A2433" onclick="selectSwatch(this)" title="Legacy Maroon"></div>
+        <div class="color-swatch" style="background:#0A2334" data-hex="#1a4a6e" onclick="selectSwatch(this)" title="Puttee Blue"></div>
+        <div class="color-swatch" style="background:#00d4ff" data-hex="#00d4ff" onclick="selectSwatch(this)"></div>
+        <div class="color-swatch" style="background:#ff8c00" data-hex="#ff8c00" onclick="selectSwatch(this)"></div>
+        <div class="color-swatch" style="background:#00e676" data-hex="#00e676" onclick="selectSwatch(this)"></div>
       </div>
+      <!-- CUSTOM COLOR INPUT -->
+      <div class="custom-color-row">
+        <span class="custom-color-label">Custom</span>
+        <input type="color" id="color-picker" value="#ffffff" oninput="onPickerChange(this)">
+        <input type="text" class="hex-input" id="hex-input" value="#FFFFFF" placeholder="#RRGGBB" maxlength="7"
+          oninput="onHexInput(this)" onkeydown="if(event.key==='Enter')applyCustomColor()">
+        <button class="btn-apply-color" onclick="applyCustomColor()">Apply</button>
+      </div>
+      <div class="color-preview-strip" id="color-preview-strip"></div>
     </div>
 
+    <!-- EFFECTS -->
     <div>
       <div class="section-head">
         <div class="section-title">Instant Effects</div>
-        <div class="section-tag">Click to fire · Right-click to add to sequence</div>
+        <div class="section-tag">Click to fire · Right-click → sequence</div>
       </div>
       <div class="effects-grid">
         <div class="effect-btn" onclick="fireEffect('FLASH')" data-effect="FLASH">
-          <div class="effect-shortcut">F</div><div class="effect-icon">⚡</div>
-          <div class="effect-name">Flash</div><div class="effect-desc">Single burst — all devices simultaneously</div>
+          <div class="effect-key">F</div><div class="effect-icon">⚡</div>
+          <div class="effect-name">Flash</div><div class="effect-desc">Single burst, all devices simultaneously</div>
         </div>
         <div class="effect-btn" onclick="fireEffect('STROBE')" data-effect="STROBE">
-          <div class="effect-shortcut">S</div><div class="effect-icon">💥</div>
-          <div class="effect-name">Strobe</div><div class="effect-desc">Rapid strobe at set interval</div>
+          <div class="effect-key">S</div><div class="effect-icon">💥</div>
+          <div class="effect-name">Strobe</div><div class="effect-desc">Rapid strobe at configured interval</div>
         </div>
         <div class="effect-btn" onclick="fireEffect('COLOR_HOLD')" data-effect="COLOR_HOLD">
-          <div class="effect-shortcut">H</div><div class="effect-icon">🌊</div>
-          <div class="effect-name">Color Hold</div><div class="effect-desc">Hold screens on selected color</div>
+          <div class="effect-key">H</div><div class="effect-icon">🌊</div>
+          <div class="effect-name">Color Hold</div><div class="effect-desc">Hold all screens on selected color</div>
         </div>
         <div class="effect-btn" onclick="fireEffect('WAVE')" data-effect="WAVE">
-          <div class="effect-shortcut">W</div><div class="effect-icon">〰️</div>
+          <div class="effect-key">W</div><div class="effect-icon">〰️</div>
           <div class="effect-name">Wave</div><div class="effect-desc">Rolling wave across stadium sections</div>
         </div>
         <div class="effect-btn" onclick="fireEffect('HEARTBEAT')" data-effect="HEARTBEAT">
-          <div class="effect-shortcut">B</div><div class="effect-icon">❤️</div>
+          <div class="effect-key">B</div><div class="effect-icon">❤️</div>
           <div class="effect-name">Heartbeat</div><div class="effect-desc">Double-thump pulse rhythm</div>
         </div>
+        <div class="effect-btn" onclick="fireEffect('SPARKLE')" data-effect="SPARKLE">
+          <div class="effect-key">P</div><div class="effect-icon">✨</div>
+          <div class="effect-name">Sparkle</div><div class="effect-desc">Glittering star burst on fan screens</div>
+        </div>
         <div class="effect-btn" onclick="fireEffect('BLACKOUT')" data-effect="BLACKOUT">
-          <div class="effect-shortcut">X</div><div class="effect-icon">⬛</div>
+          <div class="effect-key">X</div><div class="effect-icon">⬛</div>
           <div class="effect-name">Blackout</div><div class="effect-desc">Cut all lights immediately</div>
         </div>
       </div>
     </div>
 
+    <!-- SEQUENCE -->
     <div>
       <div class="section-head">
         <div class="section-title">Sequence</div>
-        <div class="section-tag">Right-click effects above to add cues</div>
+        <div class="section-tag">Right-click effects above to build cue list</div>
       </div>
       <div class="sequence-area">
         <div class="seq-timeline" id="seq-timeline">
           <span class="seq-empty" id="seq-empty">Right-click an effect to add it here...</span>
         </div>
         <div class="seq-controls">
-          <button class="seq-btn run" onclick="runSequenceLocal()">▶ LOCAL RUN</button>
-          <button class="seq-btn server-seq" onclick="runSequenceServer()">⚡ SERVER SYNC</button>
-          <button class="seq-btn loop" id="loop-btn" onclick="toggleLoop()">↺ LOOP</button>
-          <button class="seq-btn clear" onclick="clearSequence()">✕ CLEAR</button>
-          <span class="seq-label" id="seq-info">0 cues</span>
-          <span class="seq-label" id="seq-status"></span>
+          <button class="seq-btn run"    onclick="runSequenceLocal()">▶ Local Run</button>
+          <button class="seq-btn server" onclick="runSequenceServer()">⚡ Server Sync</button>
+          <button class="seq-btn loop"   id="loop-btn" onclick="toggleLoop()">↺ Loop</button>
+          <button class="seq-btn clear"  onclick="clearSequence()">✕ Clear</button>
+          <span class="seq-meta" id="seq-info">0 cues</span>
+          <span class="seq-meta" id="seq-status"></span>
         </div>
       </div>
     </div>
-  </div>
+
+  </div><!-- end center -->
 
   <!-- RIGHT -->
   <div class="panel">
     <div class="panel-title">Parameters</div>
-    <div class="params-section">
+    <div class="params-card">
       <div class="param-row">
-        <div class="param-label">Flash Duration <span id="val-flash-dur">200ms</span></div>
-        <input type="range" min="50" max="800" value="200" id="flash-dur" oninput="document.getElementById('val-flash-dur').textContent=this.value+'ms'">
+        <div class="param-label">Flash Duration <span id="v-flash">200ms</span></div>
+        <input type="range" min="50" max="800" value="200" id="flash-dur" oninput="document.getElementById('v-flash').textContent=this.value+'ms'">
       </div>
       <div class="param-row">
-        <div class="param-label">Strobe Speed <span id="val-strobe">100ms</span></div>
-        <input type="range" min="40" max="400" value="100" id="strobe-speed" oninput="document.getElementById('val-strobe').textContent=this.value+'ms'">
+        <div class="param-label">Strobe Speed <span id="v-strobe">100ms</span></div>
+        <input type="range" min="40" max="400" value="100" id="strobe-spd" oninput="document.getElementById('v-strobe').textContent=this.value+'ms'">
       </div>
       <div class="param-row">
-        <div class="param-label">Strobe Duration <span id="val-strobe-dur">3s</span></div>
-        <input type="range" min="1" max="15" value="3" id="strobe-dur" oninput="document.getElementById('val-strobe-dur').textContent=this.value+'s'">
+        <div class="param-label">Strobe Duration <span id="v-strobe-dur">3s</span></div>
+        <input type="range" min="1" max="15" value="3" id="strobe-dur" oninput="document.getElementById('v-strobe-dur').textContent=this.value+'s'">
       </div>
       <div class="param-row">
-        <div class="param-label">Wave Duration <span id="val-wave-dur">600ms</span></div>
-        <input type="range" min="200" max="2000" value="600" id="wave-dur" oninput="document.getElementById('val-wave-dur').textContent=this.value+'ms'">
+        <div class="param-label">Wave Duration <span id="v-wave">600ms</span></div>
+        <input type="range" min="200" max="2000" value="600" id="wave-dur" oninput="document.getElementById('v-wave').textContent=this.value+'ms'">
       </div>
       <div class="param-row">
-        <div class="param-label">Wave Sector Delay <span id="val-sector">80ms</span></div>
-        <input type="range" min="0" max="300" value="80" id="sector-delay" oninput="document.getElementById('val-sector').textContent=this.value+'ms'">
+        <div class="param-label">Wave Sector Delay <span id="v-sector">80ms</span></div>
+        <input type="range" min="0" max="300" value="80" id="sector-delay" oninput="document.getElementById('v-sector').textContent=this.value+'ms'">
       </div>
       <div class="param-row">
-        <div class="param-label">Sequence Cue Gap <span id="val-seq-gap">1.5s</span></div>
-        <input type="range" min="0.3" max="8" step="0.1" value="1.5" id="seq-gap" oninput="document.getElementById('val-seq-gap').textContent=this.value+'s'">
+        <div class="param-label">Sparkle Duration <span id="v-sparkle">6s</span></div>
+        <input type="range" min="1" max="20" value="6" id="sparkle-dur" oninput="document.getElementById('v-sparkle').textContent=this.value+'s'">
+      </div>
+      <div class="param-row">
+        <div class="param-label">Sequence Gap <span id="v-gap">1.5s</span></div>
+        <input type="range" min="0.3" max="8" step="0.1" value="1.5" id="seq-gap" oninput="document.getElementById('v-gap').textContent=this.value+'s'">
       </div>
     </div>
 
-    <div class="panel-title" style="margin-top:8px">Activity Log</div>
+    <div class="panel-title" style="margin-top:4px">Activity Log</div>
     <div class="log-list" id="log-list"></div>
   </div>
+
 </main>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-let socket       = null;
-let showId       = 'default';
+let socket = null, showId = 'default';
 let selectedColor = '#ffffff';
-let showRunning  = false;
-let showStartTime = null;
-let timerInterval = null;
-let sequence     = [];
-let looping      = false;
-let seqRunning   = false;
+let showRunning = false, showStartTime = null, timerInterval = null;
+let sequence = [], looping = false, seqRunning = false;
 
 // ── LOGIN ──
 function doLogin() {
@@ -427,134 +523,134 @@ function doLogin() {
     log('Connected to server', '🟢', 'var(--green)');
   });
 
-  socket.on('connect_error', (err) => {
-    document.getElementById('login-error').style.display = 'block';
-    document.getElementById('login-error').textContent =
-      err.message === 'UNAUTHORIZED' ? 'Incorrect password.' : 'Cannot reach server: ' + err.message;
-    socket.disconnect();
-    socket = null;
+  socket.on('connect_error', err => {
+    const el = document.getElementById('login-error');
+    el.textContent = err.message === 'UNAUTHORIZED' ? 'Incorrect password — try again.' : 'Cannot reach server: ' + err.message;
+    el.style.display = 'block';
+    socket.disconnect(); socket = null;
   });
 
   socket.on('disconnect', () => {
     document.getElementById('conn-dot').classList.remove('online');
     document.getElementById('conn-label').textContent = 'Reconnecting...';
-    log('Disconnected from server', '🔴', 'var(--red)');
+    log('Disconnected', '🔴', 'var(--red)');
   });
 
-  socket.on('stats_update', (stats) => {
+  socket.on('stats_update', stats => {
     document.getElementById('fan-count').textContent = stats.fanCount.toLocaleString();
     document.getElementById('peak-count').textContent = stats.peakFans.toLocaleString();
-    document.getElementById('fan-bar-curr').textContent = stats.fanCount.toLocaleString();
-    const pct = Math.min(100, (stats.fanCount / 50000) * 100);
-    document.getElementById('fan-bar-fill').style.width = pct + '%';
+    document.getElementById('fans-curr').textContent = stats.fanCount.toLocaleString();
+    document.getElementById('fans-fill').style.width = Math.min(100,(stats.fanCount/50000)*100)+'%';
   });
 
-  socket.on('show_state', (state) => {
-    if (state.status === 'live') setShowLive();
-    document.getElementById('fan-count').textContent = state.fanCount?.toLocaleString() || '0';
-    document.getElementById('peak-count').textContent = state.peakFans?.toLocaleString() || '0';
+  socket.on('show_state', state => {
+    if (state.status === 'live') setLive();
+    document.getElementById('fan-count').textContent = (state.fanCount||0).toLocaleString();
+    document.getElementById('peak-count').textContent = (state.peakFans||0).toLocaleString();
   });
 }
 
-// ── SHOW CONTROL ──
+// ── SHOW ──
 function startShow() {
   if (!socket) return;
-  socket.emit('start_show');
-  setShowLive();
-  log('Show started', '▶', 'var(--green)');
-  toast('SHOW STARTED');
+  socket.emit('start_show'); setLive();
+  log('Show started', '▶', 'var(--green)'); toast('SHOW STARTED');
 }
-
 function endShow() {
   if (!socket) return;
   socket.emit('end_show');
-  showRunning = false;
-  clearInterval(timerInterval);
+  showRunning = false; clearInterval(timerInterval);
   document.getElementById('show-status-val').textContent = 'STANDBY';
-  document.getElementById('show-status-val').style.color = 'var(--accent)';
+  document.getElementById('show-status-val').className = 'show-state-val idle';
   document.getElementById('live-badge').className = 'live-badge';
   document.getElementById('live-badge').innerHTML = '<div class="live-dot"></div> STANDBY';
-  setNowPlaying('STANDBY');
-  log('Show ended', '■', '#555');
-  toast('SHOW ENDED');
+  setNP('STANDBY'); log('Show ended', '■', '#555'); toast('SHOW ENDED');
 }
-
-function setShowLive() {
-  showRunning = true;
-  showStartTime = showStartTime || Date.now();
-  clearInterval(timerInterval);
-  timerInterval = setInterval(updateTimer, 1000);
+function setLive() {
+  showRunning = true; showStartTime = showStartTime || Date.now();
+  clearInterval(timerInterval); timerInterval = setInterval(updateTimer, 1000);
   document.getElementById('show-status-val').textContent = 'LIVE';
-  document.getElementById('show-status-val').style.color = 'var(--green)';
+  document.getElementById('show-status-val').className = 'show-state-val live';
   document.getElementById('live-badge').className = 'live-badge on';
   document.getElementById('live-badge').innerHTML = '<div class="live-dot"></div> LIVE';
 }
-
 function updateTimer() {
-  const secs = Math.floor((Date.now() - showStartTime) / 1000);
-  const m = String(Math.floor(secs/60)).padStart(2,'0');
-  const s = String(secs%60).padStart(2,'0');
-  document.getElementById('show-timer').textContent = m+':'+s;
+  const s = Math.floor((Date.now()-showStartTime)/1000);
+  document.getElementById('show-timer').textContent =
+    String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
 }
 
 // ── COLOR ──
-function selectColor(el) {
-  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+function selectSwatch(el) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
   el.classList.add('selected');
-  selectedColor = el.dataset.hex;
-  document.getElementById('custom-color').value = selectedColor;
-  document.getElementById('hex-display').textContent = selectedColor;
+  applyColor(el.dataset.hex);
 }
-function onCustomColor(input) {
-  selectedColor = input.value;
-  document.getElementById('hex-display').textContent = selectedColor;
-  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+function onPickerChange(input) {
+  document.getElementById('hex-input').value = input.value.toUpperCase();
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  applyColor(input.value);
+}
+function onHexInput(input) {
+  const v = input.value;
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+    document.getElementById('color-picker').value = v;
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    applyColor(v);
+  }
+}
+function applyCustomColor() {
+  const v = document.getElementById('hex-input').value;
+  if (/^#[0-9a-fA-F]{6}$/i.test(v)) {
+    applyColor(v);
+    toast('COLOR APPLIED');
+  } else {
+    toast('INVALID HEX CODE');
+  }
+}
+function applyColor(hex) {
+  selectedColor = hex;
+  document.getElementById('color-picker').value = hex;
+  document.getElementById('hex-input').value = hex.toUpperCase();
+  document.getElementById('color-preview-strip').style.background = hex;
 }
 
 // ── FIRE EFFECT ──
 function fireEffect(type, fromSeq=false) {
   if (!socket) { toast('NOT CONNECTED'); return; }
-
   const cmd = {
     type,
     color:       selectedColor,
-    duration:    type==='FLASH'  ? parseInt(document.getElementById('flash-dur').value)
-                :type==='STROBE' ? parseInt(document.getElementById('strobe-dur').value)*1000
-                :type==='WAVE'   ? parseInt(document.getElementById('wave-dur').value)
+    duration:    type==='FLASH'   ? parseInt(document.getElementById('flash-dur').value)
+                :type==='STROBE'  ? parseInt(document.getElementById('strobe-dur').value)*1000
+                :type==='WAVE'    ? parseInt(document.getElementById('wave-dur').value)
+                :type==='SPARKLE' ? parseInt(document.getElementById('sparkle-dur').value)*1000
                 :type==='HEARTBEAT'? 8000 : undefined,
-    interval:    parseInt(document.getElementById('strobe-speed').value),
+    interval:    parseInt(document.getElementById('strobe-spd').value),
     sectorDelay: parseInt(document.getElementById('sector-delay').value),
   };
-
   socket.emit('fire_effect', cmd);
-
   if (!fromSeq) {
     const btn = document.querySelector(`[data-effect="${type}"]`);
-    if (btn) { btn.classList.add('firing'); setTimeout(()=>btn.classList.remove('firing'),350); }
-    setNowPlaying(type);
-    log(`Fired: ${type}`, '⚡', 'var(--accent)');
+    if (btn) { btn.classList.add('firing'); setTimeout(()=>btn.classList.remove('firing'),400); }
+    setNP(type); log(`Fired: ${type}`, '⚡', 'var(--tan)');
   }
 }
-
-function setNowPlaying(name) {
-  document.getElementById('np-name').textContent = name.replace(/_/g,' ');
-}
+function setNP(n) { document.getElementById('np-name').textContent = n.replace(/_/g,' '); }
 
 // ── SEQUENCE ──
 document.querySelectorAll('.effect-btn').forEach(btn => {
   btn.addEventListener('contextmenu', e => {
     e.preventDefault();
-    sequence.push({ type: btn.dataset.effect, color: selectedColor, gap: parseFloat(document.getElementById('seq-gap').value)*1000 });
-    renderSequence();
-    toast('ADDED TO SEQUENCE');
+    sequence.push({ type:btn.dataset.effect, color:selectedColor, gap:parseFloat(document.getElementById('seq-gap').value)*1000 });
+    renderSeq(); toast('ADDED TO SEQUENCE');
   });
 });
-
-function renderSequence() {
+function renderSeq() {
   const tl = document.getElementById('seq-timeline');
   document.getElementById('seq-empty').style.display = sequence.length ? 'none' : 'block';
   tl.querySelectorAll('.seq-cue').forEach(c=>c.remove());
-  sequence.forEach((cue,i)=>{
+  sequence.forEach((cue,i) => {
     const el = document.createElement('div');
     el.className = 'seq-cue';
     el.style.borderLeftColor = cue.color;
@@ -563,56 +659,45 @@ function renderSequence() {
   });
   document.getElementById('seq-info').textContent = `${sequence.length} cue${sequence.length===1?'':'s'}`;
 }
-function removeSeqCue(i) { sequence.splice(i,1); renderSequence(); }
-function clearSequence()  { sequence=[]; seqRunning=false; renderSequence(); document.getElementById('seq-status').textContent=''; }
+function removeSeqCue(i) { sequence.splice(i,1); renderSeq(); }
+function clearSequence()  { sequence=[]; seqRunning=false; renderSeq(); document.getElementById('seq-status').textContent=''; }
 function toggleLoop() { looping=!looping; document.getElementById('loop-btn').classList.toggle('active',looping); }
 
-// Local run: director fires effects, server relays each one
 async function runSequenceLocal() {
-  if (!sequence.length || seqRunning) return;
+  if (!sequence.length||seqRunning) return;
   seqRunning = true;
   const cues = document.querySelectorAll('.seq-cue');
   const doRun = async () => {
-    for (let i=0; i<sequence.length; i++) {
+    for (let i=0;i<sequence.length;i++) {
       if (!seqRunning) break;
       const saved = selectedColor;
       selectedColor = sequence[i].color;
       cues[i]?.classList.add('active-cue');
       document.getElementById('seq-status').textContent = `Cue ${i+1}/${sequence.length}`;
-      fireEffect(sequence[i].type, true);
-      setNowPlaying(sequence[i].type);
+      fireEffect(sequence[i].type, true); setNP(sequence[i].type);
       selectedColor = saved;
-      await sleep(sequence[i].gap || 1500);
+      await sleep(sequence[i].gap||1500);
       cues[i]?.classList.remove('active-cue');
     }
-    if (looping && seqRunning) { await sleep(500); doRun(); }
+    if (looping&&seqRunning) { await sleep(500); doRun(); }
     else { seqRunning=false; document.getElementById('seq-status').textContent='Done'; }
   };
-  doRun();
-  log('Sequence started (local)', '▶', 'var(--green)');
+  doRun(); log('Sequence started (local)','▶','var(--green)');
 }
-
-// Server run: sends entire sequence to server, which handles timing server-side (tighter sync)
 function runSequenceServer() {
-  if (!socket || !sequence.length) return;
-  const seq = sequence.map(c => ({ ...c, gap: c.gap || 1500 }));
-  socket.emit('run_sequence', seq);
-  log(`Sequence sent to server (${seq.length} cues)`, '⚡', 'var(--accent2)');
-  toast('SEQUENCE RUNNING ON SERVER');
+  if (!socket||!sequence.length) return;
+  socket.emit('run_sequence', sequence.map(c=>({...c, gap:c.gap||1500})));
+  log('Sequence sent to server','⚡','var(--tan)'); toast('SEQUENCE ON SERVER');
 }
-
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 
 // ── QR ──
 async function loadQR() {
   try {
-    const res  = await fetch(`/api/qr/${showId}`);
-    const data = await res.json();
-    document.getElementById('qr-img').src = data.qr;
-    document.getElementById('qr-url').textContent = data.url;
-  } catch(e) {
-    document.getElementById('qr-url').textContent = 'QR unavailable';
-  }
+    const d = await (await fetch(`/api/qr/${showId}`)).json();
+    document.getElementById('qr-img').src = d.qr;
+    document.getElementById('qr-url').textContent = d.url;
+  } catch(e) { document.getElementById('qr-url').textContent = 'QR unavailable'; }
 }
 
 // ── LOG / TOAST ──
@@ -625,25 +710,23 @@ function log(msg, icon, color) {
   list.insertBefore(el, list.firstChild);
   if (list.children.length > 60) list.lastChild?.remove();
 }
-
 let toastTimer;
 function toast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>el.classList.remove('show'), 2000);
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>el.classList.remove('show'),2000);
 }
 
-// ── KEYBOARD SHORTCUTS ──
+// ── KEYBOARD ──
 document.addEventListener('keydown', e => {
   if (e.target.tagName==='INPUT') return;
-  const map = {f:'FLASH',s:'STROBE',h:'COLOR_HOLD',w:'WAVE',b:'HEARTBEAT',x:'BLACKOUT'};
-  const effect = map[e.key.toLowerCase()];
-  if (effect) fireEffect(effect);
+  const map = {f:'FLASH',s:'STROBE',h:'COLOR_HOLD',w:'WAVE',b:'HEARTBEAT',p:'SPARKLE',x:'BLACKOUT'};
+  const ef = map[e.key.toLowerCase()]; if (ef) fireEffect(ef);
 });
 
-log('Director console ready — enter password to connect', '🎬', 'var(--accent2)');
+// Init color preview
+document.getElementById('color-preview-strip').style.background = selectedColor;
+log('Director console ready — enter password to connect','🦌','var(--tan)');
 </script>
 </body>
 </html>

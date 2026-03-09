@@ -261,7 +261,7 @@ app.get('/api/shows', (req, res) => {
 //  HELPERS
 // ─────────────────────────────────────────────
 function sanitizeCommand(cmd) {
-  const allowed = ['FLASH','STROBE','WAVE','COLOR_HOLD','HEARTBEAT','BLACKOUT','SHOW_START','SHOW_END'];
+  const allowed = ['FLASH','STROBE','WAVE','COLOR_HOLD','HEARTBEAT','SPARKLE','BLACKOUT','SHOW_START','SHOW_END'];
   if (!allowed.includes(cmd.type)) throw new Error('Invalid effect type');
   return {
     type:        cmd.type,
@@ -295,11 +295,11 @@ function sleep(ms) {
 // ─────────────────────────────────────────────
 //  START
 // ─────────────────────────────────────────────
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
   console.log(`\n🏟️  LIGHTSHOW SERVER RUNNING`);
   console.log(`   Local:      http://localhost:${PORT}`);
   console.log(`   Public URL: ${PUBLIC_URL}`);
-  console.log(`   Director:   ${PUBLIC_URL}/director.html`);
-  console.log(`   Fan page:   ${PUBLIC_URL}/fan.html`);
+  console.log(`   Director:   ${PUBLIC_URL}/director`);
+  console.log(`   Fan page:   ${PUBLIC_URL}/fan`);
   console.log(`   Password:   ${DIRECTOR_PASS}\n`);
 });

@@ -5,27 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0a0f">
-<title>LIGHT UP</title>
+<meta name="theme-color" content="#0A2334">
+<title>NL Regiment — Light Up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<!-- Socket.IO loaded from same server -->
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="/socket.io/socket.io.js"></script>
 <style>
+@font-face {
+  font-family: 'NLRegiment';
+  src: url('/NLRegiment.otf') format('opentype');
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --flash-color: #ffffff;
-  --bg: #0a0a0f;
-  --accent: #e8ff00;
-  --text: #f0f0f0;
-  --dim: rgba(255,255,255,0.35);
+  --navy:   #0A2334;
+  --maroon: #8A2433;
+  --tan:    #E0D0A6;
+  --white:  #FFFFFF;
+  --bg:     #060f18;
+  --dim:    rgba(224,208,166,0.45);
 }
 html, body {
   width: 100%; height: 100%; overflow: hidden;
-  background: var(--bg); color: var(--text);
-  font-family: 'DM Sans', sans-serif;
+  background: var(--bg); color: var(--white);
+  font-family: 'Barlow', sans-serif;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
 }
 #brightness-layer {
   position: fixed; inset: 0;
@@ -33,469 +38,477 @@ html, body {
   transition: opacity 0.04s;
 }
 #brightness-layer.on { opacity: 1; transition: none; }
+#sparkle-canvas {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 98;
+  opacity: 0; transition: opacity 0.3s;
+}
+#sparkle-canvas.active { opacity: 1; }
 .screen {
   position: fixed; inset: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 40px 32px;
+  padding: 40px 28px;
   opacity: 0; pointer-events: none;
   transition: opacity 0.5s ease;
 }
 .screen.active { opacity: 1; pointer-events: all; }
 
-/* ── WELCOME ── */
+/* WELCOME */
 #screen-welcome {
-  background: radial-gradient(ellipse at 50% 60%, #1a1a2e 0%, #0a0a0f 70%);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(138,36,51,0.25) 0%, transparent 60%),
+    var(--bg);
 }
-.stadium-icon {
-  font-size: 64px; margin-bottom: 20px;
-  filter: drop-shadow(0 0 20px rgba(232,255,0,0.4));
-  animation: pulse-glow 2s ease-in-out infinite;
+.regiment-wordmark {
+  display: flex; flex-direction: column; align-items: center;
+  margin-bottom: 28px;
+  animation: fade-up 0.8s ease both;
 }
-@keyframes pulse-glow {
-  0%,100% { filter: drop-shadow(0 0 15px rgba(232,255,0,0.3)); transform: scale(1); }
-  50% { filter: drop-shadow(0 0 30px rgba(232,255,0,0.7)); transform: scale(1.05); }
+.wordmark-top {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(13px,3.5vw,17px); font-weight: 600;
+  letter-spacing: 0.38em; color: var(--tan);
+  text-transform: uppercase; margin-bottom: 4px;
 }
-.welcome-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(52px, 15vw, 80px);
-  letter-spacing: 0.06em; line-height: 0.9;
-  text-align: center; color: #fff; margin-bottom: 8px;
+.wordmark-main {
+  font-family: 'NLRegiment', 'Barlow Condensed', sans-serif;
+  font-size: clamp(54px,16vw,82px);
+  line-height: 0.85; color: var(--white);
+  text-transform: uppercase; letter-spacing: 0.02em; text-align: center;
 }
-.welcome-title span { color: var(--accent); }
-.welcome-sub {
-  font-size: 13px; font-weight: 300; color: var(--dim);
-  letter-spacing: 0.18em; text-transform: uppercase;
-  text-align: center; margin-bottom: 48px;
+.wordmark-sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(16px,4.5vw,22px); font-weight: 700;
+  letter-spacing: 0.25em; color: var(--maroon);
+  text-transform: uppercase; margin-top: 6px;
 }
+@keyframes fade-up { from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none} }
+.divider {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; max-width: 300px; margin-bottom: 26px;
+  animation: fade-up 0.8s 0.15s ease both;
+}
+.divider-line { flex: 1; height: 1px; background: rgba(224,208,166,0.2); }
+.divider-icon { font-size: 16px; opacity: 0.5; }
 .welcome-desc {
-  font-size: 15px; color: rgba(255,255,255,0.6);
-  text-align: center; line-height: 1.6;
-  max-width: 280px; margin-bottom: 48px;
+  font-size: 14px; font-weight: 300; color: rgba(255,255,255,0.5);
+  text-align: center; line-height: 1.7; max-width: 280px;
+  margin-bottom: 36px;
+  animation: fade-up 0.8s 0.2s ease both;
 }
-.btn-primary {
-  background: var(--accent); color: #000; border: none;
-  padding: 18px 52px;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 22px; letter-spacing: 0.12em;
-  border-radius: 4px; cursor: pointer;
-  width: 100%; max-width: 300px;
-  position: relative; overflow: hidden;
-  transition: transform 0.15s;
+.btn-regiment {
+  background: var(--maroon); color: var(--white); border: none;
+  padding: 16px 40px;
+  font-family: 'NLRegiment', 'Barlow Condensed', sans-serif;
+  font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase;
+  border-radius: 2px; cursor: pointer;
+  width: 100%; max-width: 300px; position: relative; overflow: hidden;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(138,36,51,0.4);
+  animation: fade-up 0.8s 0.3s ease both;
 }
-.btn-primary:active { transform: scale(0.97); }
-.btn-primary::after {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%);
+.btn-regiment::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(224,208,166,0.15) 0%, transparent 50%);
 }
+.btn-regiment:active { transform: scale(0.97); }
 .permission-note {
-  margin-top: 24px;
-  font-size: 11px; color: rgba(255,255,255,0.25);
+  margin-top: 18px; font-size: 10px; color: rgba(255,255,255,0.18);
   text-align: center; line-height: 1.6; max-width: 260px;
+  animation: fade-up 0.8s 0.4s ease both;
 }
 
-/* ── PERMISSION ── */
+/* PERMISSION */
 #screen-permission {
-  background: radial-gradient(ellipse at 50% 40%, #111120 0%, #0a0a0f 70%);
-  gap: 20px;
+  background: radial-gradient(ellipse at 50% 30%, rgba(138,36,51,0.12) 0%, transparent 60%), var(--bg);
+  gap: 18px;
 }
-.perm-icon {
-  width: 90px; height: 90px; border-radius: 50%;
-  background: rgba(232,255,0,0.08);
-  border: 1.5px solid rgba(232,255,0,0.3);
+.perm-crest {
+  width: 80px; height: 80px; border-radius: 50%;
+  border: 1.5px solid rgba(224,208,166,0.3);
   display: flex; align-items: center; justify-content: center;
-  font-size: 38px; margin-bottom: 8px;
-  animation: ring-pulse 2s ease-in-out infinite;
+  font-size: 36px; background: rgba(10,35,52,0.6);
+  animation: ring-pulse 2.5s ease-in-out infinite;
 }
 @keyframes ring-pulse {
-  0%,100% { box-shadow: 0 0 0 0 rgba(232,255,0,0.2); }
-  50% { box-shadow: 0 0 0 16px rgba(232,255,0,0); }
+  0%,100%{box-shadow:0 0 0 0 rgba(224,208,166,0.2)}
+  50%{box-shadow:0 0 0 14px rgba(224,208,166,0)}
 }
 .perm-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 36px; letter-spacing: 0.08em; text-align: center;
+  font-family: 'NLRegiment', 'Barlow Condensed', sans-serif;
+  font-size: 30px; letter-spacing: 0.08em; text-align: center; color: var(--tan);
 }
-.perm-body {
-  font-size: 14px; color: rgba(255,255,255,0.55);
-  text-align: center; line-height: 1.65; max-width: 270px;
-}
+.perm-body { font-size: 13px; color: rgba(255,255,255,0.5); text-align: center; line-height: 1.65; max-width: 270px; }
 .perm-steps {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 12px; padding: 20px 24px;
-  width: 100%; max-width: 300px;
-  display: flex; flex-direction: column; gap: 14px;
+  background: rgba(10,35,52,0.6); border: 1px solid rgba(224,208,166,0.1);
+  border-radius: 6px; padding: 18px 22px; width: 100%; max-width: 300px;
+  display: flex; flex-direction: column; gap: 12px;
 }
-.perm-step { display: flex; align-items: flex-start; gap: 12px; font-size: 13px; color: rgba(255,255,255,0.65); line-height: 1.4; }
+.perm-step { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.4; }
 .perm-step-num {
-  min-width: 22px; height: 22px; border-radius: 50%;
-  background: var(--accent); color: #000;
-  font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; margin-top: 1px;
+  min-width: 20px; height: 20px; border-radius: 50%;
+  background: var(--maroon); color: #fff;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 1px; flex-shrink: 0;
 }
-.ios-note { font-size: 11px; color: rgba(255,255,255,0.25); text-align: center; max-width: 260px; line-height: 1.6; display:none; }
+.ios-note { font-size: 11px; color: rgba(255,255,255,0.22); text-align: center; max-width: 260px; line-height: 1.6; display:none; }
 
-/* ── CONNECTING ── */
-#screen-connecting {
-  background: #0a0a0f; gap: 20px;
-}
-.connecting-spinner {
+/* CONNECTING */
+#screen-connecting { background: var(--bg); gap: 20px; }
+.connecting-ring {
   width: 56px; height: 56px; border-radius: 50%;
-  border: 2px solid rgba(232,255,0,0.1);
-  border-top-color: var(--accent);
-  animation: spin 0.9s linear infinite;
+  border: 2px solid rgba(224,208,166,0.1); border-top-color: var(--tan);
+  animation: spin 1s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-.connecting-text {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 28px; letter-spacing: 0.1em;
-}
-.connecting-sub { font-size: 12px; color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.connecting-text { font-family:'NLRegiment','Barlow Condensed',sans-serif; font-size:26px; letter-spacing:0.1em; color:var(--tan); }
+.connecting-sub { font-size:11px; color:var(--dim); letter-spacing:0.15em; text-transform:uppercase; }
 
-/* ── STANDBY ── */
-#screen-standby { background: #0a0a0f; }
-.standby-ring { position: relative; width: 160px; height: 160px; margin-bottom: 36px; }
-.standby-ring svg { width: 100%; height: 100%; animation: rotate 4s linear infinite; }
-@keyframes rotate { to { transform: rotate(360deg); } }
-.standby-ring-inner {
-  position: absolute; inset: 16px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(232,255,0,0.07) 0%, transparent 70%);
-  display: flex; align-items: center; justify-content: center; flex-direction: column;
+/* STANDBY */
+#screen-standby { background: radial-gradient(ellipse at 50% 50%, rgba(10,35,52,0.9) 0%, var(--bg) 70%); }
+.standby-emblem { position:relative; width:160px; height:160px; margin-bottom:32px; }
+.standby-emblem svg { width:100%; height:100%; animation:rotate 6s linear infinite; }
+@keyframes rotate { to{transform:rotate(360deg)} }
+.standby-center {
+  position:absolute; inset:20px;
+  display:flex; align-items:center; justify-content:center; flex-direction:column;
+  border-radius:50%;
 }
-.standby-dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 12px var(--accent);
-  animation: blink 1.4s ease-in-out infinite;
+.standby-pulse {
+  width:14px; height:14px; border-radius:50%;
+  background:var(--maroon); box-shadow:0 0 16px rgba(138,36,51,0.8);
+  animation:pulse-beat 1.5s ease-in-out infinite;
 }
-@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
-.standby-dot-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); margin-top: 8px; }
+@keyframes pulse-beat { 0%,100%{transform:scale(1)}50%{transform:scale(1.35)} }
+.standby-dot-label { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--dim); margin-top:6px; }
 .standby-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(38px, 10vw, 52px);
-  letter-spacing: 0.06em; text-align: center; line-height: 1; margin-bottom: 12px;
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:clamp(36px,10vw,50px); letter-spacing:0.06em; text-align:center; line-height:1;
+  color:var(--white); margin-bottom:10px;
 }
-.standby-sub { font-size: 12px; color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 48px; }
+.standby-sub { font-family:'Barlow Condensed',sans-serif; font-size:11px; color:var(--dim); letter-spacing:0.2em; text-transform:uppercase; text-align:center; margin-bottom:44px; }
 .connected-badge {
-  background: rgba(232,255,0,0.08);
-  border: 1px solid rgba(232,255,0,0.2);
-  border-radius: 100px; padding: 8px 20px;
-  font-size: 12px; color: var(--accent);
-  letter-spacing: 0.1em; text-transform: uppercase;
-  display: flex; align-items: center; gap: 8px;
+  background:rgba(10,35,52,0.8); border:1px solid rgba(224,208,166,0.2);
+  border-radius:100px; padding:9px 22px;
+  font-family:'Barlow Condensed',sans-serif; font-size:11px; color:var(--tan);
+  letter-spacing:0.15em; text-transform:uppercase;
+  display:flex; align-items:center; gap:8px;
 }
-.connected-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 6px var(--accent);
-  animation: blink 1.4s ease-in-out infinite;
-}
+.conn-live-dot { width:7px; height:7px; border-radius:50%; background:var(--maroon); box-shadow:0 0 8px rgba(138,36,51,0.8); animation:pulse-beat 1.5s ease-in-out infinite; }
 
-/* ── SHOW ── */
-#screen-show { background: #000; transition: background 0.1s; }
-.show-center { display: flex; flex-direction: column; align-items: center; gap: 16px; z-index: 2; }
-.show-wave { display: flex; align-items: flex-end; gap: 4px; height: 48px; }
-.show-wave-bar {
-  width: 5px; border-radius: 3px; background: rgba(255,255,255,0.8);
-  animation: wave-bar 1s ease-in-out infinite;
-}
-.show-wave-bar:nth-child(1){height:20px;animation-delay:0s}
-.show-wave-bar:nth-child(2){height:38px;animation-delay:0.1s}
-.show-wave-bar:nth-child(3){height:28px;animation-delay:0.2s}
-.show-wave-bar:nth-child(4){height:44px;animation-delay:0.05s}
-.show-wave-bar:nth-child(5){height:22px;animation-delay:0.15s}
-.show-wave-bar:nth-child(6){height:40px;animation-delay:0.25s}
-.show-wave-bar:nth-child(7){height:16px;animation-delay:0.08s}
-@keyframes wave-bar {
-  0%,100%{transform:scaleY(1);opacity:0.7}
-  50%{transform:scaleY(1.4);opacity:1}
-}
-.show-status { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.12em; opacity: 0.9; }
-.show-effect-label { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+/* SHOW */
+#screen-show { background:#000; transition:background 0.08s; }
+.show-center { display:flex; flex-direction:column; align-items:center; gap:20px; z-index:2; }
+.show-bars { display:flex; align-items:flex-end; gap:5px; height:52px; }
+.show-bar { width:5px; border-radius:3px; background:rgba(255,255,255,0.85); animation:bar-dance 1s ease-in-out infinite; }
+.show-bar:nth-child(1){height:18px;animation-delay:0s}
+.show-bar:nth-child(2){height:36px;animation-delay:0.1s}
+.show-bar:nth-child(3){height:26px;animation-delay:0.2s}
+.show-bar:nth-child(4){height:44px;animation-delay:0.05s}
+.show-bar:nth-child(5){height:20px;animation-delay:0.15s}
+.show-bar:nth-child(6){height:40px;animation-delay:0.25s}
+.show-bar:nth-child(7){height:14px;animation-delay:0.08s}
+@keyframes bar-dance { 0%,100%{transform:scaleY(1);opacity:0.7}50%{transform:scaleY(1.5);opacity:1} }
+.show-name { font-family:'NLRegiment','Barlow Condensed',sans-serif; font-size:32px; letter-spacing:0.1em; color:rgba(255,255,255,0.9); }
+.show-effect { font-family:'Barlow Condensed',sans-serif; font-size:11px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.35); }
 
-/* ── ERROR ── */
-#screen-error { background: #0a0a0f; gap: 20px; text-align: center; }
-.error-icon { font-size: 48px; }
-.error-title { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 0.08em; }
-.error-msg { font-size: 14px; color: var(--dim); max-width: 260px; line-height: 1.6; }
-.btn-retry { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--text); padding: 12px 28px; border-radius: 4px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.1em; cursor: pointer; }
+/* ERROR */
+#screen-error { background:var(--bg); gap:20px; text-align:center; }
+.error-icon { font-size:48px; }
+.error-title { font-family:'NLRegiment','Barlow Condensed',sans-serif; font-size:30px; letter-spacing:0.08em; color:var(--tan); }
+.error-msg { font-size:13px; color:rgba(255,255,255,0.4); max-width:260px; line-height:1.6; }
+.btn-retry { background:rgba(138,36,51,0.15); border:1px solid rgba(138,36,51,0.4); color:var(--tan); padding:12px 28px; border-radius:2px; font-family:'Barlow Condensed',sans-serif; font-size:14px; letter-spacing:0.15em; text-transform:uppercase; cursor:pointer; }
 
-body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-  pointer-events: none; z-index: 200; opacity: 0.5;
+body::after {
+  content:''; position:fixed; inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events:none; z-index:200; opacity:0.6;
 }
 </style>
 </head>
 <body>
 
 <div id="brightness-layer"></div>
+<canvas id="sparkle-canvas"></canvas>
 
-<!-- WELCOME -->
 <div class="screen active" id="screen-welcome">
-  <div class="stadium-icon">🏟️</div>
-  <h1 class="welcome-title">LIGHT<br><span>UP</span></h1>
-  <p class="welcome-sub">Stadium Experience</p>
-  <p class="welcome-desc">Be part of the show. Your phone becomes part of the largest lightshow in the building.</p>
-  <button class="btn-primary" onclick="goToPermission()">JOIN THE SHOW</button>
-  <p class="permission-note">We'll ask for camera access to control your flashlight. No photos or video are taken.</p>
+  <div class="regiment-wordmark">
+    <div class="wordmark-top">Newfoundland</div>
+    <div class="wordmark-main">Regiment</div>
+    <div class="wordmark-sub">Light Up</div>
+  </div>
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="divider-icon">🦌</div>
+    <div class="divider-line"></div>
+  </div>
+  <p class="welcome-desc">Be part of the show. Your phone joins thousands of others to light up the arena.</p>
+  <button class="btn-regiment" onclick="goToPermission()">Join The Show</button>
+  <p class="permission-note">Camera permission required to control your flashlight. No photos or video are ever taken.</p>
 </div>
 
-<!-- PERMISSION -->
 <div class="screen" id="screen-permission">
-  <div class="perm-icon">🔦</div>
-  <h2 class="perm-title">FLASHLIGHT ACCESS</h2>
+  <div class="perm-crest">🔦</div>
+  <div class="perm-title">Flashlight Access</div>
   <p class="perm-body">We need camera permission to control your flashlight in sync with the show.</p>
   <div class="perm-steps">
-    <div class="perm-step">
-      <div class="perm-step-num">1</div>
-      <div>Tap <strong>Allow</strong> below</div>
-    </div>
-    <div class="perm-step">
-      <div class="perm-step-num">2</div>
-      <div>Tap <strong>Allow</strong> on the browser popup</div>
-    </div>
-    <div class="perm-step">
-      <div class="perm-step-num">3</div>
-      <div>Hold your phone up and wait for the show!</div>
-    </div>
+    <div class="perm-step"><div class="perm-step-num">1</div><div>Tap <strong>Allow</strong> below</div></div>
+    <div class="perm-step"><div class="perm-step-num">2</div><div>Tap <strong>Allow</strong> on the browser popup</div></div>
+    <div class="perm-step"><div class="perm-step-num">3</div><div>Hold your phone up and wait for the show!</div></div>
   </div>
-  <button class="btn-primary" onclick="requestAndConnect()">ALLOW & JOIN</button>
-  <p class="ios-note" id="ios-note">📱 iPhone? Add this page to your Home Screen for full flashlight support.</p>
+  <button class="btn-regiment" onclick="requestAndConnect()">Allow &amp; Join</button>
+  <p class="ios-note" id="ios-note">📱 iPhone? Add to Home Screen for full flashlight support.</p>
 </div>
 
-<!-- CONNECTING -->
 <div class="screen" id="screen-connecting">
-  <div class="connecting-spinner"></div>
-  <div class="connecting-text">CONNECTING</div>
+  <div class="connecting-ring"></div>
+  <div class="connecting-text">Connecting</div>
   <div class="connecting-sub">Joining the show...</div>
 </div>
 
-<!-- STANDBY -->
 <div class="screen" id="screen-standby">
-  <div class="standby-ring">
+  <div class="standby-emblem">
     <svg viewBox="0 0 160 160">
-      <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(232,255,0,0.08)" stroke-width="2"/>
-      <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(232,255,0,0.5)" stroke-width="1.5"
-        stroke-dasharray="60 380" stroke-linecap="round"/>
+      <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(224,208,166,0.06)" stroke-width="1.5"/>
+      <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(224,208,166,0.35)" stroke-width="1" stroke-dasharray="30 424" stroke-linecap="round"/>
+      <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(138,36,51,0.2)" stroke-width="1" stroke-dasharray="8 20" stroke-linecap="round"/>
     </svg>
-    <div class="standby-ring-inner">
-      <div class="standby-dot"></div>
-      <div class="standby-dot-label">LIVE</div>
+    <div class="standby-center">
+      <div class="standby-pulse"></div>
+      <div class="standby-dot-label">Live</div>
     </div>
   </div>
-  <h2 class="standby-title">GET READY</h2>
-  <p class="standby-sub">Hold your phone up — show starts soon</p>
+  <div class="standby-title">Get Ready</div>
+  <div class="standby-sub">Hold your phone up — show starts soon</div>
   <div class="connected-badge">
-    <div class="connected-dot"></div>
-    <span id="fan-count-badge">Connected</span>
+    <div class="conn-live-dot"></div>
+    <span>Connected to Show</span>
   </div>
 </div>
 
-<!-- SHOW ACTIVE -->
 <div class="screen" id="screen-show">
   <div class="show-center">
-    <div class="show-wave">
-      <div class="show-wave-bar"></div><div class="show-wave-bar"></div>
-      <div class="show-wave-bar"></div><div class="show-wave-bar"></div>
-      <div class="show-wave-bar"></div><div class="show-wave-bar"></div>
-      <div class="show-wave-bar"></div>
+    <div class="show-bars">
+      <div class="show-bar"></div><div class="show-bar"></div><div class="show-bar"></div>
+      <div class="show-bar"></div><div class="show-bar"></div><div class="show-bar"></div>
+      <div class="show-bar"></div>
     </div>
-    <div class="show-status">SHOW ACTIVE</div>
-    <div class="show-effect-label" id="effect-label">STANDING BY</div>
+    <div class="show-name">Regiment Show</div>
+    <div class="show-effect" id="effect-label">Standing By</div>
   </div>
 </div>
 
-<!-- ERROR -->
 <div class="screen" id="screen-error">
   <div class="error-icon">📡</div>
-  <div class="error-title">CONNECTION LOST</div>
-  <div class="error-msg" id="error-msg">Unable to connect to the show. Make sure you're connected to the venue WiFi.</div>
-  <button class="btn-retry" onclick="location.reload()">TRY AGAIN</button>
+  <div class="error-title">Connection Lost</div>
+  <div class="error-msg" id="error-msg">Unable to connect. Check your WiFi connection.</div>
+  <button class="btn-retry" onclick="location.reload()">Try Again</button>
 </div>
 
 <script>
-// ─────────────────────────────────────────────
-//  CONFIG — auto-reads showId from URL params
-// ─────────────────────────────────────────────
-const params  = new URLSearchParams(window.location.search);
-const showId  = params.get('showId') || 'default';
-const sector  = params.get('sector') || '0';  // stadium section for wave effect
-const isIOS   = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const params = new URLSearchParams(window.location.search);
+const showId = params.get('showId') || 'default';
+const sector = params.get('sector') || '0';
+const isIOS  = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-let socket          = null;
-let torchStream     = null;
-let torchTrack      = null;
-let hasTorch        = false;
-let flashInterval   = null;
+let socket = null, torchStream = null, torchTrack = null, hasTorch = false;
+let flashInterval = null, sparkleInterval = null, fadeInterval = null;
 let currentFlashColor = '#ffffff';
+let sparkles = [];
 
-// ─────────────────────────────────────────────
-//  SCREENS
-// ─────────────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
 }
-
 function goToPermission() {
   if (isIOS) document.getElementById('ios-note').style.display = 'block';
   showScreen('permission');
 }
 
-// ─────────────────────────────────────────────
-//  FLASHLIGHT
-// ─────────────────────────────────────────────
+// ── ANDROID-OPTIMIZED TORCH ──
 async function requestAndConnect() {
   showScreen('connecting');
-  try {
-    torchStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    torchTrack  = torchStream.getVideoTracks()[0];
-    const caps  = torchTrack.getCapabilities();
-    hasTorch    = caps.torch === true;
-    if (hasTorch) await torchTrack.applyConstraints({ advanced: [{ torch: false }] });
-  } catch (e) {
-    hasTorch = false;  // Fall back to screen flash
-  }
+  await initTorch();
   connectSocket();
+}
+
+async function initTorch() {
+  // Try exact rear camera first (best for Android torch support)
+  const constraints = [
+    { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 } } },
+    { video: { facingMode: 'environment' } },
+    { video: true }
+  ];
+  for (const c of constraints) {
+    try {
+      if (torchStream) torchStream.getTracks().forEach(t => t.stop());
+      torchStream = await navigator.mediaDevices.getUserMedia(c);
+      torchTrack  = torchStream.getVideoTracks()[0];
+      const caps  = torchTrack.getCapabilities ? torchTrack.getCapabilities() : {};
+      hasTorch    = caps.torch === true;
+      if (hasTorch) {
+        await torchTrack.applyConstraints({ advanced: [{ torch: false }] });
+        console.log('Torch ready');
+        return;
+      }
+    } catch(e) { continue; }
+  }
+  console.log('No torch — screen flash mode');
+  hasTorch = false;
 }
 
 async function setTorch(on) {
   if (hasTorch && torchTrack) {
-    try { await torchTrack.applyConstraints({ advanced: [{ torch: on }] }); } catch(e) {}
+    try {
+      await torchTrack.applyConstraints({ advanced: [{ torch: on }] });
+    } catch(e) { hasTorch = false; }
   }
   const bl = document.getElementById('brightness-layer');
   bl.style.background = currentFlashColor;
   if (on) bl.classList.add('on'); else bl.classList.remove('on');
 }
 
-// ─────────────────────────────────────────────
-//  SOCKET.IO CONNECTION
-// ─────────────────────────────────────────────
+// ── SPARKLE ENGINE ──
+const canvas = document.getElementById('sparkle-canvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function newSparkle(color) {
+  return {
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 3 + 1,
+    vx: (Math.random() - 0.5) * 2.5,
+    vy: (Math.random() - 0.5) * 2.5 - 0.5,
+    life: 1,
+    decay: Math.random() * 0.018 + 0.008,
+    color,
+    rot: Math.random() * Math.PI * 2,
+    rotV: (Math.random() - 0.5) * 0.12,
+    isStar: Math.random() > 0.4,
+  };
+}
+
+function drawSparkleFrame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  sparkles = sparkles.filter(s => s.life > 0.01);
+  sparkles.forEach(s => {
+    ctx.save();
+    ctx.globalAlpha = s.life;
+    ctx.fillStyle   = s.color;
+    ctx.shadowBlur  = 10; ctx.shadowColor = s.color;
+    ctx.translate(s.x, s.y); ctx.rotate(s.rot);
+    if (s.isStar) {
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const r = i % 2 === 0 ? s.size * 2.8 : s.size * 0.9;
+        i === 0 ? ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r) : ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+      }
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(0, 0, s.size, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    s.x += s.vx; s.y += s.vy; s.vy += 0.04;
+    s.life -= s.decay; s.rot += s.rotV;
+  });
+}
+
+function startSparkle(color, duration) {
+  clearInterval(sparkleInterval); clearInterval(fadeInterval);
+  sparkles = [];
+  canvas.classList.add('active');
+  let elapsed = 0;
+  sparkleInterval = setInterval(() => {
+    for (let i = 0; i < 14; i++) sparkles.push(newSparkle(color));
+    drawSparkleFrame();
+    elapsed += 16;
+    if (duration && elapsed >= duration) stopSparkle();
+  }, 16);
+}
+
+function stopSparkle() {
+  clearInterval(sparkleInterval);
+  fadeInterval = setInterval(() => {
+    drawSparkleFrame();
+    if (sparkles.length === 0) {
+      clearInterval(fadeInterval);
+      canvas.classList.remove('active');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, 16);
+}
+
+// ── SOCKET.IO ──
 function connectSocket() {
   socket = io('/fan', {
     query: { showId, sector, device: isIOS ? 'ios' : 'android' },
-    reconnection:        true,
-    reconnectionAttempts: 10,
-    reconnectionDelay:   1000,
+    reconnection: true, reconnectionAttempts: 15, reconnectionDelay: 1000,
   });
-
-  socket.on('connect', () => {
-    console.log('Connected to show:', showId);
-    showScreen('standby');
-  });
-
-  socket.on('show_state', (state) => {
-    if (state.status === 'live') showScreen('show');
-    else showScreen('standby');
-  });
-
+  socket.on('connect', () => showScreen('standby'));
+  socket.on('show_state', s => { if (s.status === 'live') showScreen('show'); else showScreen('standby'); });
   socket.on('command', handleCommand);
-
-  socket.on('disconnect', (reason) => {
-    if (reason === 'io server disconnect') {
-      showError('Disconnected by server.');
-    }
-    // Otherwise Socket.IO will auto-reconnect
-  });
-
-  socket.on('connect_error', (err) => {
-    console.error('Connection error:', err.message);
-    showError('Could not reach the show server. Check your WiFi connection.');
-  });
-
-  socket.on('error', (err) => {
-    showError(err.message || 'An error occurred.');
-  });
+  socket.on('connect_error', () => showError('Could not reach show server. Check your WiFi.'));
+  socket.on('error', e => showError(e.message || 'Connection error.'));
 }
+function showError(msg) { document.getElementById('error-msg').textContent = msg; showScreen('error'); }
 
-function showError(msg) {
-  document.getElementById('error-msg').textContent = msg;
-  showScreen('error');
-}
-
-// ─────────────────────────────────────────────
-//  COMMAND HANDLER
-// ─────────────────────────────────────────────
+// ── COMMANDS ──
 function handleCommand(cmd) {
-  clearInterval(flashInterval);
-
+  clearInterval(flashInterval); stopSparkle();
   if (cmd.type === 'SHOW_START') { showScreen('show'); return; }
   if (cmd.type === 'SHOW_END')   { setTorch(false); showScreen('standby'); return; }
-
   currentFlashColor = cmd.color || '#ffffff';
-
-  const showEl = document.getElementById('screen-show');
-  const label  = document.getElementById('effect-label');
+  const el    = document.getElementById('screen-show');
+  const label = document.getElementById('effect-label');
 
   if (cmd.type === 'FLASH') {
-    label.textContent = 'FLASH';
-    setTorch(true);
-    showEl.style.background = currentFlashColor;
-    setTimeout(() => { setTorch(false); showEl.style.background = '#000'; }, cmd.duration || 200);
+    label.textContent = 'Flash';
+    setTorch(true); el.style.background = currentFlashColor;
+    setTimeout(() => { setTorch(false); el.style.background = '#000'; }, cmd.duration || 200);
   }
-
   if (cmd.type === 'STROBE') {
-    label.textContent = 'STROBE';
-    let on = false;
-    flashInterval = setInterval(() => {
-      on = !on;
-      setTorch(on);
-      showEl.style.background = on ? currentFlashColor : '#000';
-    }, cmd.interval || 100);
-    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); showEl.style.background = '#000'; }, cmd.duration);
+    label.textContent = 'Strobe'; let on = false;
+    flashInterval = setInterval(() => { on=!on; setTorch(on); el.style.background = on ? currentFlashColor : '#000'; }, cmd.interval || 100);
+    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); el.style.background = '#000'; }, cmd.duration);
   }
-
   if (cmd.type === 'WAVE') {
-    label.textContent = 'WAVE';
-    const delay = cmd.delay || 0;
-    setTimeout(() => {
-      setTorch(true);
-      showEl.style.background = currentFlashColor;
-      setTimeout(() => { setTorch(false); showEl.style.background = '#000'; }, cmd.duration || 600);
-    }, delay);
+    label.textContent = 'Wave';
+    setTimeout(() => { setTorch(true); el.style.background = currentFlashColor; setTimeout(() => { setTorch(false); el.style.background = '#000'; }, cmd.duration || 600); }, cmd.delay || 0);
   }
-
   if (cmd.type === 'COLOR_HOLD') {
-    label.textContent = 'COLOR HOLD';
-    showEl.style.background = currentFlashColor;
-    setTorch(true);
+    label.textContent = 'Color Hold'; el.style.background = currentFlashColor; setTorch(true);
   }
-
   if (cmd.type === 'HEARTBEAT') {
-    label.textContent = 'HEARTBEAT';
-    let beat = 0;
-    function doBeat() {
-      setTorch(true);
-      showEl.style.background = currentFlashColor;
-      setTimeout(() => { setTorch(false); showEl.style.background = '#000'; }, 80);
-    }
+    label.textContent = 'Heartbeat'; let beat = 0;
+    const doBeat = () => { setTorch(true); el.style.background = currentFlashColor; setTimeout(() => { setTorch(false); el.style.background = '#000'; }, 80); };
     doBeat();
-    flashInterval = setInterval(() => {
-      beat++;
-      setTimeout(doBeat, (beat % 2 === 0) ? 0 : 120);
-    }, 700);
+    flashInterval = setInterval(() => { beat++; setTimeout(doBeat, beat%2===0?0:120); }, 700);
     if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); }, cmd.duration);
   }
-
+  if (cmd.type === 'SPARKLE') {
+    label.textContent = 'Sparkle'; el.style.background = '#000'; setTorch(false);
+    startSparkle(currentFlashColor, cmd.duration || 6000);
+    if (hasTorch) {
+      let f = 0; const fi = setInterval(() => { if (f++>25){clearInterval(fi);return;} setTorch(true); setTimeout(()=>setTorch(false),55); }, 240);
+    }
+  }
   if (cmd.type === 'BLACKOUT') {
-    label.textContent = 'BLACKOUT';
-    showEl.style.background = '#000';
-    setTorch(false);
+    label.textContent = 'Blackout'; el.style.background = '#000'; setTorch(false);
   }
 }
 
-// Keep screen on while show is active (where supported)
-if ('wakeLock' in navigator) {
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible') {
-      try { await navigator.wakeLock.request('screen'); } catch(e) {}
-    }
-  });
-  (async () => {
-    try { await navigator.wakeLock.request('screen'); } catch(e) {}
-  })();
+// Wake lock
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) try { await navigator.wakeLock.request('screen'); } catch(e) {}
 }
+requestWakeLock();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWakeLock(); });
 </script>
 </body>
 </html>
