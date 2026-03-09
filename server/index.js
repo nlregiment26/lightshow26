@@ -264,8 +264,7 @@ directorNS.on('connection', (socket) => {
   socket.on('delete_image', ({ imageId }) => {
     show.images = show.images.filter(i => i.id !== imageId);
     if (show.currentImage === imageId) show.currentImage = null;
-    // Notify all directors of updated library
-    io.to(`directors:${showId}`).emit('image_library', show.images.map(img => ({
+    directorNS.to(`directors:${showId}`).emit('image_library', show.images.map(img => ({
       id: img.id, name: img.name, uploadedAt: img.uploadedAt, thumb: img.dataUrl,
     })));
     broadcastStats(show);
@@ -342,7 +341,7 @@ app.post('/api/upload/:showId', (req, res, next) => {
   console.log(`[IMG]  Uploaded "${entry.name}" (${Math.round(entry.size/1024)}KB) to "${showId}"`);
 
   // Notify all connected directors of updated library
-  io.to(`directors:${showId}`).emit('image_library', show.images.map(img => ({
+  directorNS.to(`directors:${showId}`).emit('image_library', show.images.map(img => ({
     id: img.id, name: img.name, uploadedAt: img.uploadedAt, thumb: img.dataUrl,
   })));
 

@@ -62,28 +62,28 @@ html,body{
 
 /* WELCOME */
 #screen-welcome{
-  background:radial-gradient(ellipse at 50% 0%,rgba(138,36,51,0.25) 0%,transparent 60%),var(--bg);
+  background:radial-gradient(ellipse at 50% 10%,rgba(138,36,51,0.3) 0%,transparent 65%),var(--bg);
 }
 .regiment-wordmark{
   display:flex;flex-direction:column;align-items:center;
-  margin-bottom:28px;animation:fade-up 0.8s ease both;
+  margin-bottom:24px;animation:fade-up 0.8s ease both;
 }
-.wordmark-top{
-  font-family:'Barlow Condensed',sans-serif;
-  font-size:clamp(13px,3.5vw,17px);font-weight:600;
-  letter-spacing:0.38em;color:var(--tan);
-  text-transform:uppercase;margin-bottom:4px;
+.regiment-logo-img{
+  width:clamp(190px,55vw,250px);
+  height:auto;
+  filter:drop-shadow(0 0 32px rgba(138,36,51,0.55)) drop-shadow(0 4px 16px rgba(0,0,0,0.8));
+  animation:logo-float 4s ease-in-out infinite;
 }
-.wordmark-main{
-  font-family:'NLRegiment','Barlow Condensed',sans-serif;
-  font-size:clamp(54px,16vw,82px);line-height:0.85;
-  color:var(--white);text-transform:uppercase;letter-spacing:0.02em;text-align:center;
+@keyframes logo-float{
+  0%,100%{transform:translateY(0px);}
+  50%{transform:translateY(-7px);}
 }
 .wordmark-sub{
   font-family:'Barlow Condensed',sans-serif;
-  font-size:clamp(16px,4.5vw,22px);font-weight:700;
-  letter-spacing:0.25em;color:var(--maroon);
-  text-transform:uppercase;margin-top:6px;
+  font-size:clamp(13px,3.8vw,18px);font-weight:700;
+  letter-spacing:0.3em;color:var(--tan);
+  text-transform:uppercase;margin-top:12px;
+  opacity:0.85;
 }
 @keyframes fade-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 .divider{
@@ -167,6 +167,11 @@ html,body{
 
 /* STANDBY */
 #screen-standby{background:radial-gradient(ellipse at 50% 50%,rgba(10,35,52,0.9) 0%,var(--bg) 70%);}
+.standby-logo{
+  width:clamp(60px,18vw,80px);height:auto;
+  opacity:0.7;margin-bottom:6px;
+  filter:drop-shadow(0 0 8px rgba(138,36,51,0.4));
+}
 .standby-emblem{position:relative;width:160px;height:160px;margin-bottom:32px;}
 .standby-emblem svg{width:100%;height:100%;animation:rotate 6s linear infinite;}
 @keyframes rotate{to{transform:rotate(360deg)}}
@@ -199,6 +204,14 @@ html,body{
 
 /* SHOW */
 #screen-show{background:#000;transition:background 0.08s;}
+.show-logo-watermark{
+  position:absolute;
+  width:clamp(55px,16vw,72px);height:auto;
+  top:18px;left:50%;transform:translateX(-50%);
+  opacity:0.12;
+  pointer-events:none;
+  filter:grayscale(1) brightness(2);
+}
 .show-center{display:flex;flex-direction:column;align-items:center;gap:20px;z-index:2;}
 .show-bars{display:flex;align-items:flex-end;gap:5px;height:52px;}
 .show-bar{width:5px;border-radius:3px;background:rgba(255,255,255,0.85);animation:bar-dance 1s ease-in-out infinite;}
@@ -237,8 +250,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 <!-- WELCOME -->
 <div class="screen active" id="screen-welcome">
   <div class="regiment-wordmark">
-    <div class="wordmark-top">Newfoundland</div>
-    <div class="wordmark-main">Regiment</div>
+    <img class="regiment-logo-img" src="/regiment-logo.png" alt="Newfoundland Regiment">
     <div class="wordmark-sub">Light Up</div>
   </div>
   <div class="divider">
@@ -274,6 +286,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 <!-- STANDBY -->
 <div class="screen" id="screen-standby">
+  <img class="standby-logo" src="/regiment-logo.png" alt="">
   <div class="standby-emblem">
     <svg viewBox="0 0 160 160">
       <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(224,208,166,0.06)" stroke-width="1.5"/>
@@ -295,6 +308,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 <!-- SHOW ACTIVE -->
 <div class="screen" id="screen-show">
+  <img class="show-logo-watermark" src="/regiment-logo.png" alt="">
   <div class="show-center">
     <div class="show-bars">
       <div class="show-bar"></div><div class="show-bar"></div><div class="show-bar"></div>
@@ -369,9 +383,13 @@ async function setTorch(on) {
     try { await torchTrack.applyConstraints({ advanced: [{ torch: on }] }); }
     catch(e) { hasTorch = false; }
   }
-  const bl = document.getElementById('brightness-layer');
-  bl.style.background = currentFlashColor;
-  if (on) bl.classList.add('on'); else bl.classList.remove('on');
+  // Screen brightness fallback ONLY when no physical torch available
+  // (COLOR_HOLD handles its own screen colour directly)
+  if (!hasTorch) {
+    const bl = document.getElementById('brightness-layer');
+    bl.style.background = currentFlashColor;
+    if (on) bl.classList.add('on'); else bl.classList.remove('on');
+  }
 }
 
 // ── SPARKLE ENGINE ──
@@ -502,6 +520,8 @@ function handleCommand(cmd) {
   clearInterval(flashInterval);
   stopSparkleVisual();
   hideImage();
+  // Always reset screen colour — COLOR_HOLD will re-apply its own
+  document.getElementById('brightness-layer').classList.remove('on');
 
   if (cmd.type === 'SHOW_START') { showScreen('show'); return; }
   if (cmd.type === 'SHOW_END')   { setTorch(false); showScreen('standby'); return; }
@@ -509,38 +529,46 @@ function handleCommand(cmd) {
   currentFlashColor = cmd.color || '#ffffff';
   const el    = document.getElementById('screen-show');
   const label = document.getElementById('effect-label');
+  const bl    = document.getElementById('brightness-layer');
+
+  // Helper: colour flash on screen (for devices without torch, or COLOR_HOLD)
+  function screenOn()  { bl.style.background = currentFlashColor; bl.classList.add('on'); }
+  function screenOff() { bl.classList.remove('on'); }
 
   if (cmd.type === 'FLASH') {
     label.textContent = 'Flash';
-    setTorch(true); el.style.background = currentFlashColor;
-    setTimeout(() => { setTorch(false); el.style.background = '#000'; }, cmd.duration || 200);
+    setTorch(true);
+    setTimeout(() => { setTorch(false); }, cmd.duration || 200);
   }
 
   if (cmd.type === 'STROBE') {
     label.textContent = 'Strobe'; let on = false;
     flashInterval = setInterval(() => {
-      on = !on; setTorch(on); el.style.background = on ? currentFlashColor : '#000';
+      on = !on; setTorch(on);
     }, cmd.interval || 100);
-    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); el.style.background = '#000'; }, cmd.duration);
+    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); }, cmd.duration);
   }
 
   if (cmd.type === 'WAVE') {
     label.textContent = 'Wave';
     setTimeout(() => {
-      setTorch(true); el.style.background = currentFlashColor;
-      setTimeout(() => { setTorch(false); el.style.background = '#000'; }, cmd.duration || 600);
+      setTorch(true);
+      setTimeout(() => { setTorch(false); }, cmd.duration || 600);
     }, cmd.delay || 0);
   }
 
   if (cmd.type === 'COLOR_HOLD') {
-    label.textContent = 'Color Hold'; el.style.background = currentFlashColor; setTorch(true);
+    // Only effect that intentionally floods the screen with colour
+    label.textContent = 'Color Hold';
+    setTorch(true);
+    screenOn();   // force screen colour regardless of torch status
   }
 
   if (cmd.type === 'HEARTBEAT') {
     label.textContent = 'Heartbeat'; let beat = 0;
     const doBeat = () => {
-      setTorch(true); el.style.background = currentFlashColor;
-      setTimeout(() => { setTorch(false); el.style.background = '#000'; }, 80);
+      setTorch(true);
+      setTimeout(() => { setTorch(false); }, 80);
     };
     doBeat();
     flashInterval = setInterval(() => { beat++; setTimeout(doBeat, beat % 2 === 0 ? 0 : 120); }, 700);
@@ -549,21 +577,20 @@ function handleCommand(cmd) {
 
   if (cmd.type === 'SPARKLE') {
     label.textContent = 'Sparkle';
-    el.style.background = '#000';
-    // Canvas visual always plays
     startSparkleVisual(currentFlashColor, cmd.duration || 6000);
-    // Staggered torch — each fan has unique timing from server
     doStaggeredTorchSparkle(cmd);
   }
 
   if (cmd.type === 'BLACKOUT') {
-    label.textContent = 'Blackout'; el.style.background = '#000'; setTorch(false);
+    label.textContent = 'Blackout';
+    setTorch(false);
+    screenOff();
   }
 
   // ── IMAGE ──
   if (cmd.type === 'IMAGE') {
     label.textContent = 'Image Display';
-    el.style.background = '#000'; setTorch(false);
+    setTorch(false); screenOff();
     showScreen('show');
     showImage(cmd.dataUrl, cmd.fit, cmd.bgColor);
   }
