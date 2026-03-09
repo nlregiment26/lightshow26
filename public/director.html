@@ -1628,8 +1628,9 @@ function ssRebuildTracks() {
     const body = document.createElement('div');
     body.className = 'ss-effect-track-body';
     body.id = 'ss-track-' + effect;
-    body.addEventListener('dragover',  (e) => { e.preventDefault(); body.classList.add('drag-over-track'); });
-    body.addEventListener('dragleave', ()  => body.classList.remove('drag-over-track'));
+    body.addEventListener('dragenter', (e) => { e.preventDefault(); body.classList.add('drag-over-track'); });
+    body.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    body.addEventListener('dragleave', (e) => { if (!body.contains(e.relatedTarget)) body.classList.remove('drag-over-track'); });
     body.addEventListener('drop',      (e) => ssTrackDrop(e, effect));
     tracks.appendChild(body);
   });
@@ -1668,14 +1669,16 @@ function ssMakeBlock(cue) {
     <span class="ss-block-label">${meta.icon} ${cue.effect.replace('_',' ')}</span>
     <div class="ss-block-resize" data-cue="${cue.id}"></div>`;
 
-  // Drag to move
+  // Drag to move — offsetX measured in content (scrolled) coords
   el.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     if (e.target.classList.contains('ss-block-resize')) return;
     e.stopPropagation();
     SS.selectedId = cue.id;
+    const scrollEl = document.getElementById('ss-tl-scroll');
     const rect = el.getBoundingClientRect();
-    SS.dragging = { cueId: cue.id, offsetX: e.clientX - rect.left, effect: cue.effect };
+    // offsetX in content coords = viewport offset + scroll position
+    SS.dragging = { cueId: cue.id, offsetX: e.clientX - rect.left + scrollEl.scrollLeft - cue.startTime * SS.pps, effect: cue.effect };
     el.classList.add('selected');
   });
 
@@ -1700,18 +1703,14 @@ function ssMakeBlock(cue) {
 function ssPaletteStart(e) {
   SS.paletteType = e.currentTarget.dataset.effect;
   e.dataTransfer.effectAllowed = 'copy';
-}
-
-function ssDragOver(e, effect) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'copy';
-  document.getElementById(`ss-track-${effect}`).classList.add('drag-over-track');
+  e.dataTransfer.setData('text/plain', SS.paletteType);  // backup in case paletteType clears
 }
 
 function ssTrackDrop(e, effect) {
   e.preventDefault();
   document.getElementById(`ss-track-${effect}`).classList.remove('drag-over-track');
-  if (!SS.paletteType && SS.paletteType !== effect) { SS.paletteType = effect; }
+  // Use dataTransfer as fallback in case SS.paletteType was lost
+  if (!SS.paletteType) SS.paletteType = e.dataTransfer.getData('text/plain');
   if (!SS.paletteType) return;
   if (!SS.audioBuffer) return;
 
@@ -1746,8 +1745,9 @@ function ssDragMove(e) {
     if (!track) return;
     const scrollEl = document.getElementById('ss-tl-scroll');
     const rect     = track.getBoundingClientRect();
-    const x        = e.clientX - rect.left + scrollEl.scrollLeft - SS.dragging.offsetX;
-    cue.startTime  = Math.max(0, Math.min(SS.duration - cue.duration, x / SS.pps));
+    // Convert mouse to content coords, subtract grab offset
+    const contentX = e.clientX - rect.left + scrollEl.scrollLeft;
+    cue.startTime  = Math.max(0, Math.min(SS.duration - cue.duration, (contentX - SS.dragging.offsetX) / SS.pps));
     const block    = document.getElementById('ssblock-' + cue.id);
     if (block) block.style.left = (cue.startTime * SS.pps) + 'px';
   }
