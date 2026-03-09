@@ -71,7 +71,7 @@ html,body{
 .regiment-logo-img{
   width:clamp(190px,55vw,250px);
   height:auto;
-  filter:drop-shadow(0 0 32px rgba(138,36,51,0.55)) drop-shadow(0 4px 16px rgba(0,0,0,0.8));
+  filter:drop-shadow(0 4px 20px rgba(0,0,0,0.6));
   animation:logo-float 4s ease-in-out infinite;
 }
 @keyframes logo-float{
@@ -250,7 +250,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 <!-- WELCOME -->
 <div class="screen active" id="screen-welcome">
   <div class="regiment-wordmark">
-    <img class="regiment-logo-img" src="/regiment-logo.png" alt="Newfoundland Regiment">
+    <img class="regiment-logo-img" src="https://media.chl.ca/wp-content/uploads/sites/21/2025/04/11121824/nfl_regiment.png" alt="Newfoundland Regiment" onerror="this.src='/regiment-logo.png'">
     <div class="wordmark-sub">Light Up</div>
   </div>
   <div class="divider">
@@ -286,7 +286,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 <!-- STANDBY -->
 <div class="screen" id="screen-standby">
-  <img class="standby-logo" src="/regiment-logo.png" alt="">
+  <img class="standby-logo" src="https://media.chl.ca/wp-content/uploads/sites/21/2025/04/11121824/nfl_regiment.png" alt="" onerror="this.src='/regiment-logo.png'">
   <div class="standby-emblem">
     <svg viewBox="0 0 160 160">
       <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(224,208,166,0.06)" stroke-width="1.5"/>
@@ -308,7 +308,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 <!-- SHOW ACTIVE -->
 <div class="screen" id="screen-show">
-  <img class="show-logo-watermark" src="/regiment-logo.png" alt="">
+  <img class="show-logo-watermark" src="https://media.chl.ca/wp-content/uploads/sites/21/2025/04/11121824/nfl_regiment.png" alt="" onerror="this.src='/regiment-logo.png'">
   <div class="show-center">
     <div class="show-bars">
       <div class="show-bar"></div><div class="show-bar"></div><div class="show-bar"></div>
