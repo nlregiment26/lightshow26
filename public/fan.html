@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0f">
+<title>LIGHT UP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Socket.IO loaded from same server -->
+<script src="/socket.io/socket.io.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --flash-color: #ffffff;
+  --bg: #0a0a0f;
+  --accent: #e8ff00;
+  --text: #f0f0f0;
+  --dim: rgba(255,255,255,0.35);
+}
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#brightness-layer {
+  position: fixed; inset: 0;
+  opacity: 0; pointer-events: none; z-index: 99;
+  transition: opacity 0.04s;
+}
+#brightness-layer.on { opacity: 1; transition: none; }
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 32px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.screen.active { opacity: 1; pointer-events: all; }
+
+/* ── WELCOME ── */
+#screen-welcome {
+  background: radial-gradient(ellipse at 50% 60%, #1a1a2e 0%, #0a0a0f 70%);
+}
+.stadium-icon {
+  font-size: 64px; margin-bottom: 20px;
+  filter: drop-shadow(0 0 20px rgba(232,255,0,0.4));
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+@keyframes pulse-glow {
+  0%,100% { filter: drop-shadow(0 0 15px rgba(232,255,0,0.3)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 30px rgba(232,255,0,0.7)); transform: scale(1.05); }
+}
+.welcome-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(52px, 15vw, 80px);
+  letter-spacing: 0.06em; line-height: 0.9;
+  text-align: center; color: #fff; margin-bottom: 8px;
+}
+.welcome-title span { color: var(--accent); }
+.welcome-sub {
+  font-size: 13px; font-weight: 300; color: var(--dim);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  text-align: center; margin-bottom: 48px;
+}
+.welcome-desc {
+  font-size: 15px; color: rgba(255,255,255,0.6);
+  text-align: center; line-height: 1.6;
+  max-width: 280px; margin-bottom: 48px;
+}
+.btn-primary {
+  background: var(--accent); color: #000; border: none;
+  padding: 18px 52px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px; letter-spacing: 0.12em;
+  border-radius: 4px; cursor: pointer;
+  width: 100%; max-width: 300px;
+  position: relative; overflow: hidden;
+  transition: transform 0.15s;
+}
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%);
+}
+.permission-note {
+  margin-top: 24px;
+  font-size: 11px; color: rgba(255,255,255,0.25);
+  text-align: center; line-height: 1.6; max-width: 260px;
+}
+
+/* ── PERMISSION ── */
+#screen-permission {
+  background: radial-gradient(ellipse at 50% 40%, #111120 0%, #0a0a0f 70%);
+  gap: 20px;
+}
+.perm-icon {
+  width: 90px; height: 90px; border-radius: 50%;
+  background: rgba(232,255,0,0.08);
+  border: 1.5px solid rgba(232,255,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38px; margin-bottom: 8px;
+  animation: ring-pulse 2s ease-in-out infinite;
+}
+@keyframes ring-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(232,255,0,0.2); }
+  50% { box-shadow: 0 0 0 16px rgba(232,255,0,0); }
+}
+.perm-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px; letter-spacing: 0.08em; text-align: center;
+}
+.perm-body {
+  font-size: 14px; color: rgba(255,255,255,0.55);
+  text-align: center; line-height: 1.65; max-width: 270px;
+}
+.perm-steps {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px; padding: 20px 24px;
+  width: 100%; max-width: 300px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.perm-step { display: flex; align-items: flex-start; gap: 12px; font-size: 13px; color: rgba(255,255,255,0.65); line-height: 1.4; }
+.perm-step-num {
+  min-width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: #000;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 1px;
+}
+.ios-note { font-size: 11px; color: rgba(255,255,255,0.25); text-align: center; max-width: 260px; line-height: 1.6; display:none; }
+
+/* ── CONNECTING ── */
+#screen-connecting {
+  background: #0a0a0f; gap: 20px;
+}
+.connecting-spinner {
+  width: 56px; height: 56px; border-radius: 50%;
+  border: 2px solid rgba(232,255,0,0.1);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.connecting-text {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px; letter-spacing: 0.1em;
+}
+.connecting-sub { font-size: 12px; color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* ── STANDBY ── */
+#screen-standby { background: #0a0a0f; }
+.standby-ring { position: relative; width: 160px; height: 160px; margin-bottom: 36px; }
+.standby-ring svg { width: 100%; height: 100%; animation: rotate 4s linear infinite; }
+@keyframes rotate { to { transform: rotate(360deg); } }
+.standby-ring-inner {
+  position: absolute; inset: 16px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,255,0,0.07) 0%, transparent 70%);
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+}
+.standby-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 12px var(--accent);
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
+.standby-dot-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); margin-top: 8px; }
+.standby-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(38px, 10vw, 52px);
+  letter-spacing: 0.06em; text-align: center; line-height: 1; margin-bottom: 12px;
+}
+.standby-sub { font-size: 12px; color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; text-align: center; margin-bottom: 48px; }
+.connected-badge {
+  background: rgba(232,255,0,0.08);
+  border: 1px solid rgba(232,255,0,0.2);
+  border-radius: 100px; padding: 8px 20px;
+  font-size: 12px; color: var(--accent);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px;
+}
+.connected-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 6px var(--accent);
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+/* ── SHOW ── */
+#screen-show { background: #000; transition: background 0.1s; }
+.show-center { display: flex; flex-direction: column; align-items: center; gap: 16px; z-index: 2; }
+.show-wave { display: flex; align-items: flex-end; gap: 4px; height: 48px; }
+.show-wave-bar {
+  width: 5px; border-radius: 3px; background: rgba(255,255,255,0.8);
+  animation: wave-bar 1s ease-in-out infinite;
+}
+.show-wave-bar:nth-child(1){height:20px;animation-delay:0s}
+.show-wave-bar:nth-child(2){height:38px;animation-delay:0.1s}
+.show-wave-bar:nth-child(3){height:28px;animation-delay:0.2s}
+.show-wave-bar:nth-child(4){height:44px;animation-delay:0.05s}
+.show-wave-bar:nth-child(5){height:22px;animation-delay:0.15s}
+.show-wave-bar:nth-child(6){height:40px;animation-delay:0.25s}
+.show-wave-bar:nth-child(7){height:16px;animation-delay:0.08s}
+@keyframes wave-bar {
+  0%,100%{transform:scaleY(1);opacity:0.7}
+  50%{transform:scaleY(1.4);opacity:1}
+}
+.show-status { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.12em; opacity: 0.9; }
+.show-effect-label { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+
+/* ── ERROR ── */
+#screen-error { background: #0a0a0f; gap: 20px; text-align: center; }
+.error-icon { font-size: 48px; }
+.error-title { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 0.08em; }
+.error-msg { font-size: 14px; color: var(--dim); max-width: 260px; line-height: 1.6; }
+.btn-retry { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--text); padding: 12px 28px; border-radius: 4px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.1em; cursor: pointer; }
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 200; opacity: 0.5;
+}
+</style>
+</head>
+<body>
+
+<div id="brightness-layer"></div>
+
+<!-- WELCOME -->
+<div class="screen active" id="screen-welcome">
+  <div class="stadium-icon">🏟️</div>
+  <h1 class="welcome-title">LIGHT<br><span>UP</span></h1>
+  <p class="welcome-sub">Stadium Experience</p>
+  <p class="welcome-desc">Be part of the show. Your phone becomes part of the largest lightshow in the building.</p>
+  <button class="btn-primary" onclick="goToPermission()">JOIN THE SHOW</button>
+  <p class="permission-note">We'll ask for camera access to control your flashlight. No photos or video are taken.</p>
+</div>
+
+<!-- PERMISSION -->
+<div class="screen" id="screen-permission">
+  <div class="perm-icon">🔦</div>
+  <h2 class="perm-title">FLASHLIGHT ACCESS</h2>
+  <p class="perm-body">We need camera permission to control your flashlight in sync with the show.</p>
+  <div class="perm-steps">
+    <div class="perm-step">
+      <div class="perm-step-num">1</div>
+      <div>Tap <strong>Allow</strong> below</div>
+    </div>
+    <div class="perm-step">
+      <div class="perm-step-num">2</div>
+      <div>Tap <strong>Allow</strong> on the browser popup</div>
+    </div>
+    <div class="perm-step">
+      <div class="perm-step-num">3</div>
+      <div>Hold your phone up and wait for the show!</div>
+    </div>
+  </div>
+  <button class="btn-primary" onclick="requestAndConnect()">ALLOW & JOIN</button>
+  <p class="ios-note" id="ios-note">📱 iPhone? Add this page to your Home Screen for full flashlight support.</p>
+</div>
+
+<!-- CONNECTING -->
+<div class="screen" id="screen-connecting">
+  <div class="connecting-spinner"></div>
+  <div class="connecting-text">CONNECTING</div>
+  <div class="connecting-sub">Joining the show...</div>
+</div>
+
+<!-- STANDBY -->
+<div class="screen" id="screen-standby">
+  <div class="standby-ring">
+    <svg viewBox="0 0 160 160">
+      <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(232,255,0,0.08)" stroke-width="2"/>
+      <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(232,255,0,0.5)" stroke-width="1.5"
+        stroke-dasharray="60 380" stroke-linecap="round"/>
+    </svg>
+    <div class="standby-ring-inner">
+      <div class="standby-dot"></div>
+      <div class="standby-dot-label">LIVE</div>
+    </div>
+  </div>
+  <h2 class="standby-title">GET READY</h2>
+  <p class="standby-sub">Hold your phone up — show starts soon</p>
+  <div class="connected-badge">
+    <div class="connected-dot"></div>
+    <span id="fan-count-badge">Connected</span>
+  </div>
+</div>
+
+<!-- SHOW ACTIVE -->
+<div class="screen" id="screen-show">
+  <div class="show-center">
+    <div class="show-wave">
+      <div class="show-wave-bar"></div><div class="show-wave-bar"></div>
+      <div class="show-wave-bar"></div><div class="show-wave-bar"></div>
+      <div class="show-wave-bar"></div><div class="show-wave-bar"></div>
+      <div class="show-wave-bar"></div>
+    </div>
+    <div class="show-status">SHOW ACTIVE</div>
+    <div class="show-effect-label" id="effect-label">STANDING BY</div>
+  </div>
+</div>
+
+<!-- ERROR -->
+<div class="screen" id="screen-error">
+  <div class="error-icon">📡</div>
+  <div class="error-title">CONNECTION LOST</div>
+  <div class="error-msg" id="error-msg">Unable to connect to the show. Make sure you're connected to the venue WiFi.</div>
+  <button class="btn-retry" onclick="location.reload()">TRY AGAIN</button>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  CONFIG — auto-reads showId from URL params
+// ─────────────────────────────────────────────
+const params  = new URLSearchParams(window.location.search);
+const showId  = params.get('showId') || 'default';
+const sector  = params.get('sector') || '0';  // stadium section for wave effect
+const isIOS   = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+let socket          = null;
+let torchStream     = null;
+let torchTrack      = null;
+let hasTorch        = false;
+let flashInterval   = null;
+let currentFlashColor = '#ffffff';
+
+// ─────────────────────────────────────────────
+//  SCREENS
+// ─────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function goToPermission() {
+  if (isIOS) document.getElementById('ios-note').style.display = 'block';
+  showScreen('permission');
+}
+
+// ─────────────────────────────────────────────
+//  FLASHLIGHT
+// ─────────────────────────────────────────────
+async function requestAndConnect() {
+  showScreen('connecting');
+  try {
+    torchStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    torchTrack  = torchStream.getVideoTracks()[0];
+    const caps  = torchTrack.getCapabilities();
+    hasTorch    = caps.torch === true;
+    if (hasTorch) await torchTrack.applyConstraints({ advanced: [{ torch: false }] });
+  } catch (e) {
+    hasTorch = false;  // Fall back to screen flash
+  }
+  connectSocket();
+}
+
+async function setTorch(on) {
+  if (hasTorch && torchTrack) {
+    try { await torchTrack.applyConstraints({ advanced: [{ torch: on }] }); } catch(e) {}
+  }
+  const bl = document.getElementById('brightness-layer');
+  bl.style.background = currentFlashColor;
+  if (on) bl.classList.add('on'); else bl.classList.remove('on');
+}
+
+// ─────────────────────────────────────────────
+//  SOCKET.IO CONNECTION
+// ─────────────────────────────────────────────
+function connectSocket() {
+  socket = io('/fan', {
+    query: { showId, sector, device: isIOS ? 'ios' : 'android' },
+    reconnection:        true,
+    reconnectionAttempts: 10,
+    reconnectionDelay:   1000,
+  });
+
+  socket.on('connect', () => {
+    console.log('Connected to show:', showId);
+    showScreen('standby');
+  });
+
+  socket.on('show_state', (state) => {
+    if (state.status === 'live') showScreen('show');
+    else showScreen('standby');
+  });
+
+  socket.on('command', handleCommand);
+
+  socket.on('disconnect', (reason) => {
+    if (reason === 'io server disconnect') {
+      showError('Disconnected by server.');
+    }
+    // Otherwise Socket.IO will auto-reconnect
+  });
+
+  socket.on('connect_error', (err) => {
+    console.error('Connection error:', err.message);
+    showError('Could not reach the show server. Check your WiFi connection.');
+  });
+
+  socket.on('error', (err) => {
+    showError(err.message || 'An error occurred.');
+  });
+}
+
+function showError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+  showScreen('error');
+}
+
+// ─────────────────────────────────────────────
+//  COMMAND HANDLER
+// ─────────────────────────────────────────────
+function handleCommand(cmd) {
+  clearInterval(flashInterval);
+
+  if (cmd.type === 'SHOW_START') { showScreen('show'); return; }
+  if (cmd.type === 'SHOW_END')   { setTorch(false); showScreen('standby'); return; }
+
+  currentFlashColor = cmd.color || '#ffffff';
+
+  const showEl = document.getElementById('screen-show');
+  const label  = document.getElementById('effect-label');
+
+  if (cmd.type === 'FLASH') {
+    label.textContent = 'FLASH';
+    setTorch(true);
+    showEl.style.background = currentFlashColor;
+    setTimeout(() => { setTorch(false); showEl.style.background = '#000'; }, cmd.duration || 200);
+  }
+
+  if (cmd.type === 'STROBE') {
+    label.textContent = 'STROBE';
+    let on = false;
+    flashInterval = setInterval(() => {
+      on = !on;
+      setTorch(on);
+      showEl.style.background = on ? currentFlashColor : '#000';
+    }, cmd.interval || 100);
+    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); showEl.style.background = '#000'; }, cmd.duration);
+  }
+
+  if (cmd.type === 'WAVE') {
+    label.textContent = 'WAVE';
+    const delay = cmd.delay || 0;
+    setTimeout(() => {
+      setTorch(true);
+      showEl.style.background = currentFlashColor;
+      setTimeout(() => { setTorch(false); showEl.style.background = '#000'; }, cmd.duration || 600);
+    }, delay);
+  }
+
+  if (cmd.type === 'COLOR_HOLD') {
+    label.textContent = 'COLOR HOLD';
+    showEl.style.background = currentFlashColor;
+    setTorch(true);
+  }
+
+  if (cmd.type === 'HEARTBEAT') {
+    label.textContent = 'HEARTBEAT';
+    let beat = 0;
+    function doBeat() {
+      setTorch(true);
+      showEl.style.background = currentFlashColor;
+      setTimeout(() => { setTorch(false); showEl.style.background = '#000'; }, 80);
+    }
+    doBeat();
+    flashInterval = setInterval(() => {
+      beat++;
+      setTimeout(doBeat, (beat % 2 === 0) ? 0 : 120);
+    }, 700);
+    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); }, cmd.duration);
+  }
+
+  if (cmd.type === 'BLACKOUT') {
+    label.textContent = 'BLACKOUT';
+    showEl.style.background = '#000';
+    setTorch(false);
+  }
+}
+
+// Keep screen on while show is active (where supported)
+if ('wakeLock' in navigator) {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      try { await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+  });
+  (async () => {
+    try { await navigator.wakeLock.request('screen'); } catch(e) {}
+  })();
+}
+</script>
+</body>
+</html>
