@@ -295,11 +295,11 @@ function sleep(ms) {
 // ─────────────────────────────────────────────
 //  START
 // ─────────────────────────────────────────────
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🏟️  LIGHTSHOW SERVER RUNNING`);
   console.log(`   Local:      http://localhost:${PORT}`);
   console.log(`   Public URL: ${PUBLIC_URL}`);
-  console.log(`   Director:   ${PUBLIC_URL}/director`);
-  console.log(`   Fan page:   ${PUBLIC_URL}/fan`);
+  console.log(`   Director:   ${PUBLIC_URL}/director.html`);
+  console.log(`   Fan page:   ${PUBLIC_URL}/fan.html`);
   console.log(`   Password:   ${DIRECTOR_PASS}\n`);
 });
