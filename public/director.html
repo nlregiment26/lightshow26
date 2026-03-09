@@ -303,7 +303,173 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--maroon);color:var(--white);font-family:'NLRegiment','Barlow Condensed',sans-serif;font-size:15px;letter-spacing:0.12em;padding:10px 24px;border-radius:3px;opacity:0;transition:all 0.25s;z-index:999;pointer-events:none;box-shadow:0 4px 16px rgba(138,36,51,0.4);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-body::before{content:'';position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--maroon) 20%,var(--tan) 50%,var(--maroon) 80%,transparent);z-index:100;}
+/* ═══════════════════════════════════════
+   SONG SYNC TAB
+═══════════════════════════════════════ */
+
+/* Upload zone */
+.ss-upload-zone{
+  background:rgba(255,255,255,0.02);border:2px dashed rgba(224,208,166,0.15);
+  border-radius:6px;padding:28px 20px;text-align:center;
+  cursor:pointer;transition:all 0.2s;position:relative;
+}
+.ss-upload-zone:hover,.ss-upload-zone.drag-over{border-color:rgba(138,36,51,0.5);background:rgba(138,36,51,0.05);}
+.ss-upload-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.ss-upload-zone.has-song{border-style:solid;border-color:rgba(76,175,125,0.3);background:rgba(76,175,125,0.04);padding:14px 20px;}
+.ss-upload-icon{font-size:28px;margin-bottom:6px;}
+.ss-upload-title{font-family:'NLRegiment','Barlow Condensed',sans-serif;font-size:18px;letter-spacing:0.06em;color:var(--tan);}
+.ss-upload-sub{font-size:11px;color:var(--dim);margin-top:4px;}
+
+/* Transport */
+.ss-transport{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:10px 14px;
+}
+.ss-btn{
+  background:rgba(255,255,255,0.06);border:1px solid var(--border2);
+  color:var(--white);border-radius:3px;padding:7px 12px;
+  font-size:15px;cursor:pointer;transition:all 0.15s;line-height:1;
+}
+.ss-btn:hover{background:rgba(255,255,255,0.12);}
+.ss-btn:active{transform:scale(0.95);}
+.ss-play{background:var(--maroon);border-color:var(--maroon);min-width:38px;text-align:center;}
+.ss-play:hover{background:#a02b3e;}
+.ss-fire-btn{font-size:11px;letter-spacing:0.08em;padding:7px 10px;}
+.ss-fire-btn.active{background:rgba(76,175,125,0.2);border-color:rgba(76,175,125,0.4);color:var(--green);}
+.ss-time-display{
+  font-family:var(--mono);font-size:13px;color:var(--white);
+  background:rgba(0,0,0,0.3);border:1px solid var(--border);
+  border-radius:3px;padding:5px 10px;white-space:nowrap;
+  min-width:100px;text-align:center;
+}
+.ss-time-sep{color:var(--dim);margin:0 3px;}
+.ss-zoom-controls{display:flex;align-items:center;gap:4px;}
+.ss-zoom-btn{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--tan);border-radius:3px;width:22px;height:22px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;}
+.ss-zoom-btn:hover{background:rgba(255,255,255,0.1);}
+.ss-zoom-label{font-family:var(--mono);font-size:10px;color:var(--dim);min-width:24px;text-align:center;}
+.ss-transport-right{margin-left:auto;display:flex;gap:6px;}
+.ss-small-btn{padding:5px 10px;border:1px solid var(--border);border-radius:3px;background:rgba(255,255,255,0.04);color:var(--dim);font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:0.08em;cursor:pointer;transition:all 0.15s;}
+.ss-small-btn:hover{color:var(--white);border-color:var(--border2);}
+.ss-small-btn.danger{color:rgba(201,64,80,0.6);}
+.ss-small-btn.danger:hover{color:var(--red);border-color:rgba(201,64,80,0.3);}
+
+/* Timeline wrapper */
+.ss-timeline-wrap{
+  display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;overflow:hidden;
+  user-select:none;
+}
+
+/* Ruler row */
+.ss-ruler-row{display:flex;border-bottom:1px solid var(--border);}
+.ss-track-label-spacer{width:90px;flex-shrink:0;background:rgba(0,0,0,0.2);}
+.ss-ruler-scroll{flex:1;overflow:hidden;position:relative;}
+#ss-ruler{display:block;}
+
+/* Track rows */
+.ss-track-row{display:flex;border-bottom:1px solid rgba(224,208,166,0.04);}
+.ss-track-row:last-child{border-bottom:none;}
+.ss-track-label{
+  width:90px;flex-shrink:0;
+  background:rgba(0,0,0,0.2);
+  display:flex;flex-direction:column;justify-content:center;
+  padding:0 10px;border-right:1px solid var(--border);
+}
+.ss-track-name{font-size:9px;color:var(--dim);letter-spacing:0.08em;text-transform:uppercase;}
+.ss-track-body{flex:1;position:relative;overflow:hidden;}
+.ss-waveform-body{height:56px;background:rgba(10,35,52,0.5);cursor:pointer;}
+.ss-effect-track-body{
+  height:44px;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,0.01) 0px,rgba(255,255,255,0.01) 1px,transparent 1px,transparent 80px);
+  position:relative;overflow:hidden;
+  cursor:crosshair;
+}
+.ss-effect-track-body.drag-over-track{background:rgba(138,36,51,0.08);}
+
+/* Playhead */
+.ss-playhead{
+  position:absolute;top:0;bottom:0;width:2px;
+  background:var(--maroon);
+  box-shadow:0 0 6px rgba(138,36,51,0.8);
+  pointer-events:none;z-index:10;
+  left:0;
+}
+.ss-playhead::before{
+  content:'';position:absolute;top:0;left:-4px;
+  border:5px solid transparent;border-top-color:var(--maroon);
+  border-bottom:none;width:0;height:0;
+}
+
+/* Effect blocks on timeline */
+.ss-block{
+  position:absolute;top:4px;bottom:4px;
+  border-radius:3px;
+  border:1px solid rgba(255,255,255,0.2);
+  cursor:grab;overflow:hidden;
+  display:flex;align-items:center;
+  padding:0 5px;
+  font-family:var(--mono);font-size:9px;
+  white-space:nowrap;
+  transition:box-shadow 0.12s;
+  min-width:20px;
+}
+.ss-block:hover{box-shadow:0 0 0 1px rgba(255,255,255,0.4);z-index:5;}
+.ss-block:active{cursor:grabbing;}
+.ss-block.selected{box-shadow:0 0 0 2px var(--white);z-index:6;}
+.ss-block-label{overflow:hidden;text-overflow:ellipsis;pointer-events:none;}
+.ss-block-resize{
+  position:absolute;right:0;top:0;bottom:0;width:6px;
+  cursor:ew-resize;background:rgba(255,255,255,0.15);
+  border-left:1px solid rgba(255,255,255,0.2);
+}
+.ss-block-resize:hover{background:rgba(255,255,255,0.35);}
+
+/* Scroll bar */
+.ss-hscroll-bar{overflow-x:auto;overflow-y:hidden;height:12px;background:rgba(0,0,0,0.2);}
+.ss-hscroll-bar::-webkit-scrollbar{height:8px;}
+.ss-hscroll-bar::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
+.ss-hscroll-bar::-webkit-scrollbar-thumb{background:rgba(224,208,166,0.2);border-radius:4px;}
+#ss-hscroll-inner{height:1px;}
+
+/* Palette */
+.ss-palette{
+  background:rgba(0,0,0,0.2);border:1px solid var(--border);
+  border-radius:4px;padding:12px 14px;
+}
+.ss-palette-label{font-family:var(--mono);font-size:8px;letter-spacing:0.15em;text-transform:uppercase;color:var(--dim);margin-bottom:10px;}
+.ss-palette-chips{display:flex;gap:7px;flex-wrap:wrap;}
+.ss-chip{
+  background:rgba(var(--cc-r,255),var(--cc-g,255),var(--cc-b,255),0.12);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:3px;padding:6px 12px;
+  font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:0.06em;
+  cursor:grab;transition:all 0.15s;color:var(--white);
+  white-space:nowrap;
+}
+.ss-chip:hover{background:rgba(255,255,255,0.1);transform:translateY(-1px);}
+.ss-chip:active{cursor:grabbing;}
+
+/* Context menu */
+.ss-ctx-menu{
+  position:fixed;z-index:9999;
+  background:var(--panel);border:1px solid var(--border2);
+  border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  overflow:hidden;min-width:160px;
+}
+.ss-ctx-item{
+  padding:9px 14px;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  transition:background 0.1s;color:rgba(255,255,255,0.8);
+}
+.ss-ctx-item:hover{background:rgba(255,255,255,0.07);}
+.ss-ctx-item.danger{color:var(--red);}
+.ss-ctx-sep{height:1px;background:var(--border);margin:3px 0;}
+
+/* Waveform canvas */
+#ss-waveform{display:block;width:100%;height:56px;}
+#ss-ruler{height:24px;}
 </style>
 </head>
 <body>
@@ -397,6 +563,7 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;height:2px;backgroun
       <button class="center-tab active" onclick="switchTab('effects', this)">Effects</button>
       <button class="center-tab" onclick="switchTab('images', this)">Images</button>
       <button class="center-tab" onclick="switchTab('sequence', this)">Sequence</button>
+      <button class="center-tab" onclick="switchTab('songsync', this)">🎵 Song Sync</button>
     </div>
 
     <!-- EFFECTS TAB -->
@@ -521,6 +688,91 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;height:2px;backgroun
         </div>
       </div>
     </div>
+
+    <!-- SONG SYNC TAB -->
+    <div class="tab-pane" id="tab-songsync">
+
+      <!-- SONG UPLOAD -->
+      <div class="ss-upload-zone" id="ss-upload-zone"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="ssDrop(event)">
+        <input type="file" id="ss-file-input" accept="audio/*" onchange="ssLoadFile(this.files[0])">
+        <div class="ss-upload-icon">🎵</div>
+        <div class="ss-upload-title" id="ss-song-name">Upload a Song</div>
+        <div class="ss-upload-sub">MP3, WAV, AAC · Click or drag &amp; drop</div>
+      </div>
+
+      <!-- TRANSPORT BAR -->
+      <div class="ss-transport" id="ss-transport" style="display:none">
+        <button class="ss-btn" id="ss-rewind" onclick="ssRewind()" title="Rewind">⏮</button>
+        <button class="ss-btn ss-play" id="ss-play" onclick="ssTogglePlay()">▶</button>
+        <button class="ss-btn" id="ss-stop" onclick="ssStop()">⏹</button>
+        <div class="ss-time-display">
+          <span id="ss-current-time">0:00.0</span>
+          <span class="ss-time-sep">/</span>
+          <span id="ss-total-time">0:00</span>
+        </div>
+        <div class="ss-zoom-controls">
+          <button class="ss-zoom-btn" onclick="ssZoom(-1)" title="Zoom out">−</button>
+          <span class="ss-zoom-label" id="ss-zoom-label">1×</span>
+          <button class="ss-zoom-btn" onclick="ssZoom(1)" title="Zoom in">+</button>
+        </div>
+        <button class="ss-btn ss-fire-btn" id="ss-live-fire" onclick="ssToggleLiveFire()" title="Fire effects to fans during playback">📡 Live</button>
+        <div class="ss-transport-right">
+          <button class="ss-small-btn" onclick="ssSave()">💾 Save</button>
+          <button class="ss-small-btn" onclick="ssLoad()">📂 Load</button>
+          <button class="ss-small-btn danger" onclick="ssClearAll()">✕ Clear</button>
+        </div>
+      </div>
+
+      <!-- WAVEFORM + TIMELINE -->
+      <div class="ss-timeline-wrap" id="ss-timeline-wrap" style="display:none">
+
+        <!-- RULER -->
+        <div class="ss-ruler-row">
+          <div class="ss-track-label-spacer"></div>
+          <div class="ss-ruler-scroll" id="ss-ruler-scroll">
+            <canvas id="ss-ruler" height="24"></canvas>
+          </div>
+        </div>
+
+        <!-- WAVEFORM TRACK -->
+        <div class="ss-track-row">
+          <div class="ss-track-label">
+            <div class="ss-track-name">🎵 Audio</div>
+          </div>
+          <div class="ss-track-body ss-waveform-body" id="ss-waveform-body">
+            <canvas id="ss-waveform" height="56"></canvas>
+            <!-- PLAYHEAD -->
+            <div class="ss-playhead" id="ss-playhead"></div>
+          </div>
+        </div>
+
+        <!-- EFFECT TRACKS (one per effect type) -->
+        <div id="ss-effect-tracks"></div>
+
+        <!-- HORIZONTAL SCROLL -->
+        <div class="ss-hscroll-bar" id="ss-hscroll-bar" onscroll="ssSyncScroll(this)">
+          <div id="ss-hscroll-inner"></div>
+        </div>
+      </div>
+
+      <!-- EFFECT PALETTE (drag these onto timeline) -->
+      <div class="ss-palette" id="ss-palette" style="display:none">
+        <div class="ss-palette-label">Drag effects onto a track ↑ · Right-click a block to edit/delete</div>
+        <div class="ss-palette-chips">
+          <div class="ss-chip" draggable="true" data-effect="FLASH"      ondragstart="ssPaletteStart(event)" style="--cc:#ffffff">⚡ Flash</div>
+          <div class="ss-chip" draggable="true" data-effect="STROBE"     ondragstart="ssPaletteStart(event)" style="--cc:#aaaaff">💥 Strobe</div>
+          <div class="ss-chip" draggable="true" data-effect="COLOR_HOLD" ondragstart="ssPaletteStart(event)" style="--cc:#E0D0A6">🌊 Color Hold</div>
+          <div class="ss-chip" draggable="true" data-effect="WAVE"       ondragstart="ssPaletteStart(event)" style="--cc:#00d4ff">〰️ Wave</div>
+          <div class="ss-chip" draggable="true" data-effect="HEARTBEAT"  ondragstart="ssPaletteStart(event)" style="--cc:#ff4444">❤️ Heartbeat</div>
+          <div class="ss-chip" draggable="true" data-effect="SPARKLE"    ondragstart="ssPaletteStart(event)" style="--cc:#ffe066">✨ Sparkle</div>
+          <div class="ss-chip" draggable="true" data-effect="BLACKOUT"   ondragstart="ssPaletteStart(event)" style="--cc:#444444">⬛ Blackout</div>
+        </div>
+      </div>
+
+    </div><!-- /tab-songsync -->
 
   </div><!-- /center -->
 
@@ -931,9 +1183,637 @@ document.addEventListener('keydown', e => {
   const ef = map[e.key.toLowerCase()]; if (ef) fireEffect(ef);
 });
 
-// Init
-document.getElementById('color-preview-strip').style.background = selectedColor;
-log('Director console ready — enter password to connect', '🦌', 'var(--tan)');
+
+// ═══════════════════════════════════════════════════════
+//  SONG SYNC ENGINE
+// ═══════════════════════════════════════════════════════
+
+const SS = {
+  // Audio
+  audioCtx:    null,
+  audioBuffer: null,
+  sourceNode:  null,
+  gainNode:    null,
+  songName:    '',
+  duration:    0,
+
+  // Playback state
+  playing:     false,
+  startedAt:   0,     // audioCtx.currentTime when play was pressed
+  offsetAt:    0,     // song offset (seconds) at time of last play/pause
+  liveFire:    false,
+
+  // Timeline/view
+  zoom:        1,     // pixels per second (base = 80)
+  BASE_PPS:    80,    // pixels per second at zoom 1x
+  scrollX:     0,
+
+  // Cue data: [{ id, effect, color, startTime, duration, params }]
+  cues:        [],
+  selectedId:  null,
+  firedIds:    new Set(),   // cue IDs already fired in this playback pass
+
+  // Drag state
+  dragging:    null,   // { cueId, offsetX, trackEffect } or null
+  resizing:    null,   // { cueId, startX, origDuration }
+  paletteType: null,   // effect being dragged from palette
+
+  // RAF
+  rafId:       null,
+
+  get pps() { return this.BASE_PPS * this.zoom; },
+  get currentTime() {
+    if (!this.playing) return this.offsetAt;
+    return this.offsetAt + (this.audioCtx.currentTime - this.startedAt);
+  },
+};
+
+// ── EFFECT META ──
+const SS_EFFECTS = {
+  FLASH:      { icon:'⚡', color:'#cccccc', defaultDuration:0.2  },
+  STROBE:     { icon:'💥', color:'#8888ff', defaultDuration:3    },
+  COLOR_HOLD: { icon:'🌊', color:'#E0D0A6', defaultDuration:4    },
+  WAVE:       { icon:'〰️', color:'#00d4ff', defaultDuration:1    },
+  HEARTBEAT:  { icon:'❤️', color:'#ff4444', defaultDuration:3    },
+  SPARKLE:    { icon:'✨', color:'#ffe066', defaultDuration:6    },
+  BLACKOUT:   { icon:'⬛', color:'#444444', defaultDuration:1    },
+};
+
+// Unique tracks, one per effect type
+const SS_TRACK_ORDER = ['FLASH','STROBE','COLOR_HOLD','WAVE','HEARTBEAT','SPARKLE','BLACKOUT'];
+
+function ssInit() {
+  ssRebuildTracks();
+  window.addEventListener('resize', ssRedrawAll);
+  document.addEventListener('mouseup', ssDragEnd);
+  document.addEventListener('mousemove', ssDragMove);
+  document.addEventListener('click', ssCloseCtxMenu);
+}
+
+// ── FILE LOAD ──
+function ssDrop(e) {
+  e.preventDefault();
+  document.getElementById('ss-upload-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('audio/')) ssLoadFile(f);
+}
+
+async function ssLoadFile(file) {
+  if (!file) return;
+  SS.songName = file.name.replace(/\.[^.]+$/, '');
+  document.getElementById('ss-song-name').textContent = '🎵 ' + SS.songName;
+  document.getElementById('ss-upload-zone').classList.add('has-song');
+  document.getElementById('ss-upload-zone').querySelector('.ss-upload-sub').textContent = 'Click to replace · Drag new file to change';
+
+  // Decode
+  SS.audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+  SS.gainNode   = SS.audioCtx.createGain();
+  SS.gainNode.connect(SS.audioCtx.destination);
+
+  const buf = await file.arrayBuffer();
+  SS.audioBuffer = await SS.audioCtx.decodeAudioData(buf);
+  SS.duration    = SS.audioBuffer.duration;
+  SS.offsetAt    = 0;
+  SS.playing     = false;
+  SS.firedIds    = new Set();
+
+  document.getElementById('ss-total-time').textContent = ssFormatTime(SS.duration);
+  document.getElementById('ss-transport').style.display    = 'flex';
+  document.getElementById('ss-timeline-wrap').style.display = 'flex';
+  document.getElementById('ss-palette').style.display      = 'flex';
+
+  ssDrawWaveform();
+  ssDrawRuler();
+  ssUpdateScrollWidth();
+  ssRedrawCues();
+  ssUpdatePlayhead();
+  log(`Song loaded: ${SS.songName}`, '🎵', 'var(--tan)');
+}
+
+// ── TRANSPORT ──
+function ssTogglePlay() {
+  if (!SS.audioBuffer) return;
+  if (SS.audioCtx.state === 'suspended') SS.audioCtx.resume();
+  SS.playing ? ssPause() : ssPlay();
+}
+
+function ssPlay() {
+  if (!SS.audioBuffer) return;
+  if (SS.playing) return;
+
+  // Resume from offsetAt
+  SS.sourceNode = SS.audioCtx.createBufferSource();
+  SS.sourceNode.buffer = SS.audioBuffer;
+  SS.sourceNode.connect(SS.gainNode);
+  SS.sourceNode.start(0, Math.max(0, SS.offsetAt));
+  SS.sourceNode.onended = () => { if (SS.playing) ssStop(); };
+
+  SS.startedAt = SS.audioCtx.currentTime;
+  SS.playing   = true;
+  document.getElementById('ss-play').textContent = '⏸';
+  SS.rafId = requestAnimationFrame(ssTick);
+}
+
+function ssPause() {
+  if (!SS.playing) return;
+  SS.offsetAt = SS.currentTime;
+  SS.sourceNode?.stop();
+  SS.playing = false;
+  cancelAnimationFrame(SS.rafId);
+  document.getElementById('ss-play').textContent = '▶';
+  ssUpdatePlayhead();
+  ssUpdateTimeDisplay();
+}
+
+function ssStop() {
+  if (SS.playing) { SS.sourceNode?.stop(); SS.playing = false; }
+  cancelAnimationFrame(SS.rafId);
+  SS.offsetAt  = 0;
+  SS.firedIds  = new Set();
+  document.getElementById('ss-play').textContent = '▶';
+  ssUpdatePlayhead();
+  ssUpdateTimeDisplay();
+}
+
+function ssRewind() {
+  const wasPlaying = SS.playing;
+  ssStop();
+  if (wasPlaying) ssPlay();
+}
+
+function ssTick() {
+  const t = SS.currentTime;
+  if (t >= SS.duration) { ssStop(); return; }
+
+  ssUpdatePlayhead();
+  ssUpdateTimeDisplay();
+  ssAutoScrollPlayhead();
+
+  // Live fire
+  if (SS.liveFire && socket) {
+    for (const cue of SS.cues) {
+      if (!SS.firedIds.has(cue.id) && t >= cue.startTime && t < cue.startTime + 0.05) {
+        SS.firedIds.add(cue.id);
+        fireEffect(cue.effect, true);
+        // temporarily override selectedColor
+        const prevColor = selectedColor;
+        selectedColor = cue.color;
+        fireEffect(cue.effect, true);
+        selectedColor = prevColor;
+        log(`Auto-fired: ${cue.effect} @ ${ssFormatTime(cue.startTime)}`, '⚡', 'var(--tan)');
+      }
+    }
+  }
+
+  SS.rafId = requestAnimationFrame(ssTick);
+}
+
+function ssToggleLiveFire() {
+  SS.liveFire = !SS.liveFire;
+  const btn = document.getElementById('ss-live-fire');
+  btn.classList.toggle('active', SS.liveFire);
+  btn.textContent = SS.liveFire ? '📡 Live ON' : '📡 Live';
+  toast(SS.liveFire ? 'LIVE FIRE ON — effects will fire to fans' : 'LIVE FIRE OFF');
+}
+
+// ── ZOOM ──
+const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16];
+function ssZoom(dir) {
+  const idx = ZOOM_LEVELS.indexOf(SS.zoom);
+  const next = ZOOM_LEVELS[Math.max(0, Math.min(ZOOM_LEVELS.length-1, idx + dir))];
+  if (next === SS.zoom) return;
+  SS.zoom = next;
+  document.getElementById('ss-zoom-label').textContent = SS.zoom + '×';
+  ssDrawRuler();
+  ssUpdateScrollWidth();
+  ssRedrawCues();
+  ssUpdatePlayhead();
+}
+
+// ── WAVEFORM ──
+function ssDrawWaveform() {
+  const canvas = document.getElementById('ss-waveform');
+  const body   = document.getElementById('ss-waveform-body');
+  const totalW = Math.max(body.clientWidth, SS.duration * SS.pps);
+  canvas.width  = totalW;
+  canvas.height = 56;
+  const ctx = canvas.getContext('2d');
+
+  const data     = SS.audioBuffer.getChannelData(0);
+  const step     = Math.max(1, Math.floor(data.length / totalW));
+  const midY     = 28;
+  const ampScale = 22;
+
+  ctx.clearRect(0, 0, totalW, 56);
+  ctx.strokeStyle = 'rgba(224,208,166,0.5)';
+  ctx.lineWidth   = 1;
+
+  ctx.beginPath();
+  for (let x = 0; x < totalW; x++) {
+    let min = 0, max = 0;
+    for (let i = 0; i < step; i++) {
+      const v = data[x * step + i] || 0;
+      if (v < min) min = v; if (v > max) max = v;
+    }
+    ctx.moveTo(x + 0.5, midY + min * ampScale);
+    ctx.lineTo(x + 0.5, midY + max * ampScale);
+  }
+  ctx.stroke();
+
+  // Waveform click → seek
+  body.onclick = (e) => {
+    const rect = body.getBoundingClientRect();
+    const x    = e.clientX - rect.left + SS.scrollX;
+    const t    = x / SS.pps;
+    ssSeekTo(Math.max(0, Math.min(SS.duration, t)));
+  };
+}
+
+function ssSeekTo(t) {
+  const wasPlaying = SS.playing;
+  if (wasPlaying) ssPause();
+  SS.offsetAt = t;
+  // Re-fire tracking: mark cues before seek point as already fired
+  SS.firedIds = new Set(SS.cues.filter(c => c.startTime < t).map(c => c.id));
+  if (wasPlaying) ssPlay();
+  ssUpdatePlayhead();
+  ssUpdateTimeDisplay();
+}
+
+// ── RULER ──
+function ssDrawRuler() {
+  if (!SS.duration) return;
+  const wrap  = document.getElementById('ss-ruler-scroll');
+  const canvas = document.getElementById('ss-ruler');
+  const totalW = Math.max(wrap.clientWidth, SS.duration * SS.pps);
+  canvas.width  = totalW;
+  canvas.height = 24;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, totalW, 24);
+
+  const pps = SS.pps;
+  // Choose tick interval based on zoom
+  const intervals = [0.1,0.25,0.5,1,2,5,10,15,30,60];
+  const minPx = 40;
+  const interval = intervals.find(i => i * pps >= minPx) || 60;
+
+  ctx.fillStyle   = 'rgba(224,208,166,0.5)';
+  ctx.font        = '9px JetBrains Mono, monospace';
+  ctx.textAlign   = 'left';
+  ctx.strokeStyle = 'rgba(224,208,166,0.15)';
+  ctx.lineWidth   = 1;
+
+  for (let t = 0; t <= SS.duration; t += interval) {
+    const x = Math.round(t * pps) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, 14); ctx.lineTo(x, 24); ctx.stroke();
+    const label = ssFormatTime(t);
+    ctx.fillText(label, x + 2, 11);
+  }
+
+  // Fine ticks (half interval)
+  ctx.strokeStyle = 'rgba(224,208,166,0.07)';
+  const halfInt = interval / 2;
+  for (let t = halfInt; t <= SS.duration; t += interval) {
+    const x = Math.round(t * pps) + 0.5;
+    ctx.beginPath(); ctx.moveTo(x, 18); ctx.lineTo(x, 24); ctx.stroke();
+  }
+}
+
+// ── TRACKS ──
+function ssRebuildTracks() {
+  const container = document.getElementById('ss-effect-tracks');
+  container.innerHTML = '';
+  SS_TRACK_ORDER.forEach(effect => {
+    const meta = SS_EFFECTS[effect];
+    const row  = document.createElement('div');
+    row.className  = 'ss-track-row';
+    row.dataset.effect = effect;
+    row.innerHTML  = `
+      <div class="ss-track-label">
+        <div class="ss-track-name" style="font-size:8px">${meta.icon} ${effect.replace('_',' ')}</div>
+      </div>
+      <div class="ss-effect-track-body" id="ss-track-${effect}"
+        ondragover="ssDragOver(event,'${effect}')"
+        ondragleave="this.classList.remove('drag-over-track')"
+        ondrop="ssTrackDrop(event,'${effect}')">
+      </div>`;
+    container.appendChild(row);
+  });
+}
+
+// ── CUE RENDERING ──
+function ssRedrawCues() {
+  SS_TRACK_ORDER.forEach(effect => {
+    const track = document.getElementById(`ss-track-${effect}`);
+    if (!track) return;
+    // Set track width
+    track.style.width = Math.max(track.parentElement.clientWidth, SS.duration * SS.pps) + 'px';
+
+    // Remove old blocks
+    track.querySelectorAll('.ss-block').forEach(b => b.remove());
+
+    // Draw blocks for this effect
+    SS.cues.filter(c => c.effect === effect).forEach(cue => {
+      const block = ssMakeBlock(cue);
+      track.appendChild(block);
+    });
+  });
+}
+
+function ssMakeBlock(cue) {
+  const meta  = SS_EFFECTS[cue.effect];
+  const left  = cue.startTime * SS.pps;
+  const width = Math.max(20, cue.duration * SS.pps);
+
+  const el = document.createElement('div');
+  el.className    = 'ss-block' + (cue.id === SS.selectedId ? ' selected' : '');
+  el.id           = 'ssblock-' + cue.id;
+  el.style.left   = left + 'px';
+  el.style.width  = width + 'px';
+  el.style.background = hexToRgba(cue.color, 0.5);
+  el.style.borderColor = hexToRgba(cue.color, 0.8);
+  el.style.color  = '#fff';
+
+  el.innerHTML = `
+    <span class="ss-block-label">${meta.icon} ${cue.effect.replace('_',' ')}</span>
+    <div class="ss-block-resize" data-cue="${cue.id}"></div>`;
+
+  // Drag to move
+  el.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.classList.contains('ss-block-resize')) return;
+    e.stopPropagation();
+    SS.selectedId = cue.id;
+    const rect = el.getBoundingClientRect();
+    SS.dragging = { cueId: cue.id, offsetX: e.clientX - rect.left, effect: cue.effect };
+    el.classList.add('selected');
+  });
+
+  // Resize handle
+  el.querySelector('.ss-block-resize').addEventListener('mousedown', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    SS.selectedId = cue.id;
+    SS.resizing = { cueId: cue.id, startX: e.clientX, origDuration: cue.duration };
+  });
+
+  // Right-click context menu
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    SS.selectedId = cue.id;
+    ssShowCtxMenu(e.clientX, e.clientY, cue);
+  });
+
+  return el;
+}
+
+// ── DRAG from PALETTE ──
+function ssPaletteStart(e) {
+  SS.paletteType = e.currentTarget.dataset.effect;
+  e.dataTransfer.effectAllowed = 'copy';
+}
+
+function ssDragOver(e, effect) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  document.getElementById(`ss-track-${effect}`).classList.add('drag-over-track');
+}
+
+function ssTrackDrop(e, effect) {
+  e.preventDefault();
+  document.getElementById(`ss-track-${effect}`).classList.remove('drag-over-track');
+  if (!SS.paletteType && SS.paletteType !== effect) { SS.paletteType = effect; }
+  if (!SS.paletteType) return;
+  if (!SS.audioBuffer) return;
+
+  const track  = document.getElementById(`ss-track-${effect}`);
+  const rect   = track.getBoundingClientRect();
+  const x      = e.clientX - rect.left + SS.scrollX;
+  const startT = Math.max(0, Math.min(SS.duration - 0.5, x / SS.pps));
+  const meta   = SS_EFFECTS[SS.paletteType];
+
+  const cue = {
+    id:        'cue_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+    effect:    SS.paletteType,
+    color:     selectedColor !== '#ffffff' ? selectedColor : meta.color,
+    startTime: startT,
+    duration:  meta.defaultDuration,
+    params:    {},
+  };
+
+  SS.cues.push(cue);
+  SS.cues.sort((a,b) => a.startTime - b.startTime);
+  SS.paletteType = null;
+  ssRedrawCues();
+}
+
+// ── DRAG MOVE (block repositioning) ──
+function ssDragMove(e) {
+  if (SS.dragging) {
+    const cue   = SS.cues.find(c => c.id === SS.dragging.cueId);
+    if (!cue) return;
+    const track = document.getElementById(`ss-track-${cue.effect}`);
+    if (!track) return;
+    const rect  = track.getBoundingClientRect();
+    const x     = e.clientX - rect.left + SS.scrollX - SS.dragging.offsetX;
+    cue.startTime = Math.max(0, Math.min(SS.duration - cue.duration, x / SS.pps));
+    const block = document.getElementById('ssblock-' + cue.id);
+    if (block) block.style.left = (cue.startTime * SS.pps) + 'px';
+  }
+  if (SS.resizing) {
+    const cue = SS.cues.find(c => c.id === SS.resizing.cueId);
+    if (!cue) return;
+    const dx  = e.clientX - SS.resizing.startX;
+    cue.duration = Math.max(0.1, SS.resizing.origDuration + dx / SS.pps);
+    const block  = document.getElementById('ssblock-' + cue.id);
+    if (block) block.style.width = Math.max(20, cue.duration * SS.pps) + 'px';
+  }
+}
+
+function ssDragEnd() {
+  if (SS.dragging || SS.resizing) {
+    SS.dragging = null; SS.resizing = null;
+    SS.cues.sort((a,b) => a.startTime - b.startTime);
+  }
+}
+
+// ── CONTEXT MENU ──
+let _ctxMenu = null;
+function ssShowCtxMenu(x, y, cue) {
+  ssCloseCtxMenu();
+  const menu = document.createElement('div');
+  menu.className = 'ss-ctx-menu';
+  menu.id = 'ss-ctx-menu';
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+
+  const meta = SS_EFFECTS[cue.effect];
+  menu.innerHTML = `
+    <div class="ss-ctx-item" style="font-family:var(--mono);font-size:10px;color:var(--tan);pointer-events:none">
+      ${meta.icon} ${cue.effect.replace('_',' ')} @ ${ssFormatTime(cue.startTime)}
+    </div>
+    <div class="ss-ctx-sep"></div>
+    <div class="ss-ctx-item" onclick="ssCtxSetColor('${cue.id}')">🎨 Set Color</div>
+    <div class="ss-ctx-item" onclick="ssCtxDuplicate('${cue.id}')">⧉ Duplicate</div>
+    <div class="ss-ctx-item" onclick="ssCtxFireNow('${cue.id}')">⚡ Fire Now</div>
+    <div class="ss-ctx-sep"></div>
+    <div class="ss-ctx-item danger" onclick="ssCtxDelete('${cue.id}')">🗑 Delete</div>`;
+
+  document.body.appendChild(menu);
+  _ctxMenu = menu;
+}
+
+function ssCloseCtxMenu(e) {
+  if (_ctxMenu && (!e || !_ctxMenu.contains(e.target))) {
+    _ctxMenu.remove(); _ctxMenu = null;
+  }
+}
+
+function ssCtxSetColor(id) {
+  ssCloseCtxMenu();
+  const cue = SS.cues.find(c => c.id === id);
+  if (!cue) return;
+  cue.color = selectedColor;
+  ssRedrawCues();
+}
+function ssCtxDuplicate(id) {
+  ssCloseCtxMenu();
+  const cue = SS.cues.find(c => c.id === id);
+  if (!cue) return;
+  SS.cues.push({ ...cue, id: 'cue_' + Date.now(), startTime: cue.startTime + cue.duration + 0.2 });
+  SS.cues.sort((a,b) => a.startTime - b.startTime);
+  ssRedrawCues();
+}
+function ssCtxFireNow(id) {
+  ssCloseCtxMenu();
+  const cue = SS.cues.find(c => c.id === id);
+  if (!cue) return;
+  const prev = selectedColor; selectedColor = cue.color;
+  fireEffect(cue.effect);
+  selectedColor = prev;
+}
+function ssCtxDelete(id) {
+  ssCloseCtxMenu();
+  SS.cues = SS.cues.filter(c => c.id !== id);
+  ssRedrawCues();
+}
+
+// ── PLAYHEAD ──
+function ssUpdatePlayhead() {
+  const ph = document.getElementById('ss-playhead');
+  if (!ph) return;
+  const x = SS.currentTime * SS.pps - SS.scrollX;
+  ph.style.left = x + 'px';
+  ph.style.display = x < 0 ? 'none' : 'block';
+}
+
+function ssAutoScrollPlayhead() {
+  if (!SS.duration) return;
+  const wrap  = document.getElementById('ss-waveform-body');
+  if (!wrap) return;
+  const w     = wrap.clientWidth;
+  const x     = SS.currentTime * SS.pps;
+  const scrollX = SS.scrollX;
+  // Keep playhead in the middle 60% of the view
+  if (x > scrollX + w * 0.75 || x < scrollX + w * 0.1) {
+    const newScroll = Math.max(0, x - w * 0.3);
+    ssSyncScrollTo(newScroll);
+  }
+}
+
+function ssUpdateScrollWidth() {
+  if (!SS.duration) return;
+  const totalW = SS.duration * SS.pps;
+  document.getElementById('ss-hscroll-inner').style.width = totalW + 'px';
+  // Resize waveform canvas to new zoom
+  if (SS.audioBuffer) ssDrawWaveform();
+  ssDrawRuler();
+  ssRedrawCues();
+}
+
+function ssSyncScroll(el) {
+  SS.scrollX = el.scrollLeft;
+  // Sync ruler and all track bodies via translateX
+  document.getElementById('ss-ruler').style.transform         = `translateX(-${SS.scrollX}px)`;
+  document.getElementById('ss-waveform').style.transform      = `translateX(-${SS.scrollX}px)`;
+  SS_TRACK_ORDER.forEach(e => {
+    const t = document.getElementById(`ss-track-${e}`);
+    if (t) t.style.transform = `translateX(-${SS.scrollX}px)`;
+  });
+  ssUpdatePlayhead();
+}
+
+function ssSyncScrollTo(x) {
+  const bar = document.getElementById('ss-hscroll-bar');
+  if (bar) { bar.scrollLeft = x; ssSyncScroll(bar); }
+}
+
+function ssUpdateTimeDisplay() {
+  document.getElementById('ss-current-time').textContent = ssFormatTime(SS.currentTime, true);
+}
+
+function ssRedrawAll() {
+  if (!SS.audioBuffer) return;
+  ssDrawWaveform(); ssDrawRuler(); ssUpdateScrollWidth(); ssRedrawCues(); ssUpdatePlayhead();
+}
+
+// ── SAVE / LOAD ──
+function ssSave() {
+  if (!SS.cues.length) { toast('NO CUES TO SAVE'); return; }
+  const data = JSON.stringify({ songName: SS.songName, duration: SS.duration, cues: SS.cues }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = (SS.songName || 'show') + '-lightshow.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('SEQUENCE SAVED');
+}
+
+function ssLoad() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json,application/json';
+  input.onchange = async (e) => {
+    const f    = e.target.files[0]; if (!f) return;
+    const text = await f.text();
+    try {
+      const data = JSON.parse(text);
+      SS.cues = data.cues || [];
+      if (data.songName) document.getElementById('ss-song-name').textContent = '🎵 ' + data.songName;
+      SS.cues.sort((a,b) => a.startTime - b.startTime);
+      ssRedrawCues();
+      toast('SEQUENCE LOADED — ' + SS.cues.length + ' cues');
+      log(`Loaded sequence: ${SS.cues.length} cues`, '📂', 'var(--green)');
+    } catch(err) { toast('INVALID FILE'); }
+  };
+  input.click();
+}
+
+function ssClearAll() {
+  if (!SS.cues.length) return;
+  if (!confirm('Clear all cues?')) return;
+  ssStop();
+  SS.cues = [];
+  ssRedrawCues();
+  toast('CLEARED');
+}
+
+// ── UTILS ──
+function ssFormatTime(s, precise=false) {
+  const m   = Math.floor(s / 60);
+  const sec = s % 60;
+  if (precise) return `${m}:${sec.toFixed(1).padStart(4,'0')}`;
+  return `${m}:${Math.floor(sec).toString().padStart(2,'0')}`;
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Init song sync when DOM ready
+ssInit();
+
 </script>
 </body>
 </html>
