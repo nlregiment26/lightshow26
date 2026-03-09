@@ -356,39 +356,84 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
 
 /* Timeline wrapper */
 .ss-timeline-wrap{
-  display:flex;flex-direction:column;
   background:var(--panel);border:1px solid var(--border);
   border-radius:4px;overflow:hidden;
   user-select:none;
 }
 
-/* Ruler row */
-.ss-ruler-row{display:flex;border-bottom:1px solid var(--border);}
-.ss-track-label-spacer{width:90px;flex-shrink:0;background:rgba(0,0,0,0.2);}
-.ss-ruler-scroll{flex:1;overflow:hidden;position:relative;}
-#ss-ruler{display:block;}
+/* Outer flex: sticky labels | scrolling content */
+.ss-tl-outer{display:flex;overflow:hidden;}
 
-/* Track rows */
-.ss-track-row{display:flex;border-bottom:1px solid rgba(224,208,166,0.04);}
-.ss-track-row:last-child{border-bottom:none;}
-.ss-track-label{
-  width:90px;flex-shrink:0;
-  background:rgba(0,0,0,0.2);
-  display:flex;flex-direction:column;justify-content:center;
-  padding:0 10px;border-right:1px solid var(--border);
+/* Sticky left label column */
+.ss-tl-labels{
+  width:88px;flex-shrink:0;
+  background:rgba(0,0,0,0.25);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  z-index:5;
 }
-.ss-track-name{font-size:9px;color:var(--dim);letter-spacing:0.08em;text-transform:uppercase;}
-.ss-track-body{flex:1;position:relative;overflow:hidden;}
-.ss-waveform-body{height:56px;background:rgba(10,35,52,0.5);cursor:pointer;}
+.ss-tl-ruler-label{height:26px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.ss-tl-track-label{
+  height:58px;flex-shrink:0;
+  display:flex;align-items:center;
+  padding:0 10px;
+  font-size:9px;color:var(--dim);letter-spacing:0.08em;text-transform:uppercase;
+  border-bottom:1px solid rgba(224,208,166,0.04);
+}
+.ss-tl-effect-label{
+  height:46px;flex-shrink:0;
+  display:flex;align-items:center;
+  padding:0 10px;
+  font-size:9px;color:var(--dim);letter-spacing:0.06em;text-transform:uppercase;
+  border-bottom:1px solid rgba(224,208,166,0.04);
+}
+
+/* Scrolling content area — THIS is the single scroll container */
+.ss-tl-scroll{
+  flex:1;overflow-x:auto;overflow-y:hidden;
+  position:relative;
+}
+.ss-tl-scroll::-webkit-scrollbar{height:8px;}
+.ss-tl-scroll::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
+.ss-tl-scroll::-webkit-scrollbar-thumb{background:rgba(224,208,166,0.2);border-radius:4px;}
+
+/* Inner content — width set by JS to duration*pps */
+.ss-tl-content{
+  position:relative;display:flex;flex-direction:column;
+  min-height:100%;
+}
+
+/* Ruler */
+.ss-tl-ruler-row{
+  height:26px;flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:4;
+  background:var(--panel);
+}
+#ss-ruler{display:block;height:26px;}
+
+/* Waveform row */
+.ss-tl-waveform-row{
+  height:58px;flex-shrink:0;
+  background:rgba(10,35,52,0.5);
+  cursor:crosshair;position:relative;
+  border-bottom:1px solid rgba(224,208,166,0.04);
+}
+#ss-waveform{display:block;height:58px;position:absolute;top:0;left:0;}
+
+/* Effect track rows */
 .ss-effect-track-body{
-  height:44px;
-  background:repeating-linear-gradient(90deg,rgba(255,255,255,0.01) 0px,rgba(255,255,255,0.01) 1px,transparent 1px,transparent 80px);
-  position:relative;overflow:hidden;
+  height:46px;flex-shrink:0;
+  background:repeating-linear-gradient(90deg,
+    rgba(255,255,255,0.015) 0px,rgba(255,255,255,0.015) 1px,
+    transparent 1px,transparent 80px);
+  position:relative;
   cursor:crosshair;
+  border-bottom:1px solid rgba(224,208,166,0.04);
 }
 .ss-effect-track-body.drag-over-track{background:rgba(138,36,51,0.08);}
 
-/* Playhead */
+/* Playhead — spans the full content height */
 .ss-playhead{
   position:absolute;top:0;bottom:0;width:2px;
   background:var(--maroon);
@@ -402,18 +447,14 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
   border-bottom:none;width:0;height:0;
 }
 
-/* Effect blocks on timeline */
+/* Effect blocks */
 .ss-block{
   position:absolute;top:4px;bottom:4px;
-  border-radius:3px;
-  border:1px solid rgba(255,255,255,0.2);
+  border-radius:3px;border:1px solid rgba(255,255,255,0.2);
   cursor:grab;overflow:hidden;
-  display:flex;align-items:center;
-  padding:0 5px;
-  font-family:var(--mono);font-size:9px;
-  white-space:nowrap;
-  transition:box-shadow 0.12s;
-  min-width:20px;
+  display:flex;align-items:center;padding:0 5px;
+  font-family:var(--mono);font-size:9px;white-space:nowrap;
+  transition:box-shadow 0.12s;min-width:20px;
 }
 .ss-block:hover{box-shadow:0 0 0 1px rgba(255,255,255,0.4);z-index:5;}
 .ss-block:active{cursor:grabbing;}
@@ -425,13 +466,6 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
   border-left:1px solid rgba(255,255,255,0.2);
 }
 .ss-block-resize:hover{background:rgba(255,255,255,0.35);}
-
-/* Scroll bar */
-.ss-hscroll-bar{overflow-x:auto;overflow-y:hidden;height:12px;background:rgba(0,0,0,0.2);}
-.ss-hscroll-bar::-webkit-scrollbar{height:8px;}
-.ss-hscroll-bar::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
-.ss-hscroll-bar::-webkit-scrollbar-thumb{background:rgba(224,208,166,0.2);border-radius:4px;}
-#ss-hscroll-inner{height:1px;}
 
 /* Palette */
 .ss-palette{
@@ -795,34 +829,33 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
       </div>
 
       <!-- WAVEFORM + TIMELINE -->
+      <!-- New architecture: sticky label column + single real-scrolling content area -->
       <div class="ss-timeline-wrap" id="ss-timeline-wrap" style="display:none">
-
-        <!-- RULER -->
-        <div class="ss-ruler-row">
-          <div class="ss-track-label-spacer"></div>
-          <div class="ss-ruler-scroll" id="ss-ruler-scroll">
-            <canvas id="ss-ruler" height="24"></canvas>
+        <div class="ss-tl-outer">
+          <!-- Sticky left labels -->
+          <div class="ss-tl-labels" id="ss-tl-labels">
+            <div class="ss-tl-ruler-label"></div>
+            <div class="ss-tl-track-label">🎵 Audio</div>
+            <!-- Effect track labels injected by JS -->
+            <div id="ss-effect-labels"></div>
           </div>
-        </div>
-
-        <!-- WAVEFORM TRACK -->
-        <div class="ss-track-row">
-          <div class="ss-track-label">
-            <div class="ss-track-name">🎵 Audio</div>
+          <!-- Scrolling right content -->
+          <div class="ss-tl-scroll" id="ss-tl-scroll">
+            <div class="ss-tl-content" id="ss-tl-content">
+              <!-- Ruler -->
+              <div class="ss-tl-ruler-row">
+                <canvas id="ss-ruler"></canvas>
+              </div>
+              <!-- Waveform -->
+              <div class="ss-tl-waveform-row" id="ss-waveform-body">
+                <canvas id="ss-waveform"></canvas>
+              </div>
+              <!-- Effect tracks injected by JS -->
+              <div id="ss-effect-tracks"></div>
+              <!-- Playhead spans full height -->
+              <div class="ss-playhead" id="ss-playhead"></div>
+            </div>
           </div>
-          <div class="ss-track-body ss-waveform-body" id="ss-waveform-body">
-            <canvas id="ss-waveform" height="56"></canvas>
-            <!-- PLAYHEAD -->
-            <div class="ss-playhead" id="ss-playhead"></div>
-          </div>
-        </div>
-
-        <!-- EFFECT TRACKS (one per effect type) -->
-        <div id="ss-effect-tracks"></div>
-
-        <!-- HORIZONTAL SCROLL -->
-        <div class="ss-hscroll-bar" id="ss-hscroll-bar" onscroll="ssSyncScroll(this)">
-          <div id="ss-hscroll-inner"></div>
         </div>
       </div>
 
@@ -1274,7 +1307,6 @@ const SS = {
   // Timeline/view
   zoom:        1,     // pixels per second (base = 80)
   BASE_PPS:    80,    // pixels per second at zoom 1x
-  scrollX:     0,
 
   // Cue data: [{ id, effect, color, startTime, duration, params }]
   cues:        [],
@@ -1463,22 +1495,22 @@ function ssZoom(dir) {
 
 // ── WAVEFORM ──
 function ssDrawWaveform() {
-  const canvas = document.getElementById('ss-waveform');
-  const body   = document.getElementById('ss-waveform-body');
-  const totalW = Math.max(body.clientWidth, SS.duration * SS.pps);
+  if (!SS.audioBuffer) return;
+  const totalW  = Math.ceil(SS.duration * SS.pps);
+  const canvas  = document.getElementById('ss-waveform');
   canvas.width  = totalW;
-  canvas.height = 56;
-  const ctx = canvas.getContext('2d');
+  canvas.height = 58;
+  canvas.style.width  = totalW + 'px';
 
+  const ctx      = canvas.getContext('2d');
   const data     = SS.audioBuffer.getChannelData(0);
   const step     = Math.max(1, Math.floor(data.length / totalW));
-  const midY     = 28;
-  const ampScale = 22;
+  const midY     = 29;
+  const ampScale = 24;
 
-  ctx.clearRect(0, 0, totalW, 56);
-  ctx.strokeStyle = 'rgba(224,208,166,0.5)';
+  ctx.clearRect(0, 0, totalW, 58);
+  ctx.strokeStyle = 'rgba(224,208,166,0.55)';
   ctx.lineWidth   = 1;
-
   ctx.beginPath();
   for (let x = 0; x < totalW; x++) {
     let min = 0, max = 0;
@@ -1491,17 +1523,20 @@ function ssDrawWaveform() {
   }
   ctx.stroke();
 
-  // Waveform: click to seek, drag to scrub
+  // Waveform: click/drag to seek — coords are relative to content, no scrollX needed
+  const body = document.getElementById('ss-waveform-body');
   let _wfDragging = false;
   const doWfSeek = (e) => {
-    const rect = body.getBoundingClientRect();
-    const x    = e.clientX - rect.left + SS.scrollX;
+    const scrollEl = document.getElementById('ss-tl-scroll');
+    const rect     = body.getBoundingClientRect();
+    // clientX relative to body, plus scroll offset = position in content
+    const x = e.clientX - rect.left + scrollEl.scrollLeft;
     ssSeekTo(Math.max(0, Math.min(SS.duration, x / SS.pps)));
   };
-  body.onmousedown = (e) => { _wfDragging = true; doWfSeek(e); };
-  body.onmousemove = (e) => { if (_wfDragging) doWfSeek(e); };
-  body.onmouseup   = ()  => { _wfDragging = false; };
-  body.onmouseleave= ()  => { _wfDragging = false; };
+  body.onmousedown  = (e) => { _wfDragging = true; doWfSeek(e); };
+  body.onmousemove  = (e) => { if (_wfDragging) doWfSeek(e); };
+  body.onmouseup    = ()  => { _wfDragging = false; };
+  body.onmouseleave = ()  => { _wfDragging = false; };
 }
 
 function ssSeekTo(t) {
@@ -1537,13 +1572,13 @@ function ssSeekTo(t) {
 // ── RULER ──
 function ssDrawRuler() {
   if (!SS.duration) return;
-  const wrap  = document.getElementById('ss-ruler-scroll');
+  const totalW = Math.ceil(SS.duration * SS.pps);
   const canvas = document.getElementById('ss-ruler');
-  const totalW = Math.max(wrap.clientWidth, SS.duration * SS.pps);
   canvas.width  = totalW;
-  canvas.height = 24;
+  canvas.height = 26;
+  canvas.style.width = totalW + 'px';
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, totalW, 24);
+  ctx.clearRect(0, 0, totalW, 26);
 
   const pps = SS.pps;
   // Choose tick interval based on zoom
@@ -1561,7 +1596,7 @@ function ssDrawRuler() {
     const x = Math.round(t * pps) + 0.5;
     ctx.beginPath(); ctx.moveTo(x, 14); ctx.lineTo(x, 24); ctx.stroke();
     const label = ssFormatTime(t);
-    ctx.fillText(label, x + 2, 11);
+    ctx.fillText(label, x + 2, 12);
   }
 
   // Fine ticks (half interval)
@@ -1575,42 +1610,42 @@ function ssDrawRuler() {
 
 // ── TRACKS ──
 function ssRebuildTracks() {
-  const container = document.getElementById('ss-effect-tracks');
-  container.innerHTML = '';
+  const tracks = document.getElementById('ss-effect-tracks');
+  const labels = document.getElementById('ss-effect-labels');
+  tracks.innerHTML = '';
+  labels.innerHTML = '';
+
   SS_TRACK_ORDER.forEach(effect => {
     const meta = SS_EFFECTS[effect];
-    const row  = document.createElement('div');
-    row.className  = 'ss-track-row';
-    row.dataset.effect = effect;
-    row.innerHTML  = `
-      <div class="ss-track-label">
-        <div class="ss-track-name" style="font-size:8px">${meta.icon} ${effect.replace('_',' ')}</div>
-      </div>
-      <div class="ss-effect-track-body" id="ss-track-${effect}"
-        ondragover="ssDragOver(event,'${effect}')"
-        ondragleave="this.classList.remove('drag-over-track')"
-        ondrop="ssTrackDrop(event,'${effect}')">
-      </div>`;
-    container.appendChild(row);
+
+    // Label (in sticky column)
+    const lbl = document.createElement('div');
+    lbl.className = 'ss-tl-effect-label';
+    lbl.textContent = meta.icon + ' ' + effect.replace('_',' ');
+    labels.appendChild(lbl);
+
+    // Track body (in scroll area)
+    const body = document.createElement('div');
+    body.className = 'ss-effect-track-body';
+    body.id = 'ss-track-' + effect;
+    body.addEventListener('dragover',  (e) => { e.preventDefault(); body.classList.add('drag-over-track'); });
+    body.addEventListener('dragleave', ()  => body.classList.remove('drag-over-track'));
+    body.addEventListener('drop',      (e) => ssTrackDrop(e, effect));
+    tracks.appendChild(body);
   });
 }
 
 // ── CUE RENDERING ──
 function ssRedrawCues() {
   ssScrubBarDrawMarkers();
+  const totalW = Math.ceil(SS.duration * SS.pps);
   SS_TRACK_ORDER.forEach(effect => {
-    const track = document.getElementById(`ss-track-${effect}`);
+    const track = document.getElementById('ss-track-' + effect);
     if (!track) return;
-    // Set track width
-    track.style.width = Math.max(track.parentElement.clientWidth, SS.duration * SS.pps) + 'px';
-
-    // Remove old blocks
+    track.style.width = totalW + 'px';
     track.querySelectorAll('.ss-block').forEach(b => b.remove());
-
-    // Draw blocks for this effect
     SS.cues.filter(c => c.effect === effect).forEach(cue => {
-      const block = ssMakeBlock(cue);
-      track.appendChild(block);
+      track.appendChild(ssMakeBlock(cue));
     });
   });
 }
@@ -1680,10 +1715,11 @@ function ssTrackDrop(e, effect) {
   if (!SS.paletteType) return;
   if (!SS.audioBuffer) return;
 
-  const track  = document.getElementById(`ss-track-${effect}`);
-  const rect   = track.getBoundingClientRect();
-  const x      = e.clientX - rect.left + SS.scrollX;
-  const startT = Math.max(0, Math.min(SS.duration - 0.5, x / SS.pps));
+  const track    = document.getElementById('ss-track-' + effect);
+  const scrollEl = document.getElementById('ss-tl-scroll');
+  const rect     = track.getBoundingClientRect();
+  const x        = e.clientX - rect.left + scrollEl.scrollLeft;
+  const startT   = Math.max(0, Math.min(SS.duration - 0.5, x / SS.pps));
   const meta   = SS_EFFECTS[SS.paletteType];
 
   const cue = {
@@ -1704,14 +1740,15 @@ function ssTrackDrop(e, effect) {
 // ── DRAG MOVE (block repositioning) ──
 function ssDragMove(e) {
   if (SS.dragging) {
-    const cue   = SS.cues.find(c => c.id === SS.dragging.cueId);
+    const cue      = SS.cues.find(c => c.id === SS.dragging.cueId);
     if (!cue) return;
-    const track = document.getElementById(`ss-track-${cue.effect}`);
+    const track    = document.getElementById('ss-track-' + cue.effect);
     if (!track) return;
-    const rect  = track.getBoundingClientRect();
-    const x     = e.clientX - rect.left + SS.scrollX - SS.dragging.offsetX;
-    cue.startTime = Math.max(0, Math.min(SS.duration - cue.duration, x / SS.pps));
-    const block = document.getElementById('ssblock-' + cue.id);
+    const scrollEl = document.getElementById('ss-tl-scroll');
+    const rect     = track.getBoundingClientRect();
+    const x        = e.clientX - rect.left + scrollEl.scrollLeft - SS.dragging.offsetX;
+    cue.startTime  = Math.max(0, Math.min(SS.duration - cue.duration, x / SS.pps));
+    const block    = document.getElementById('ssblock-' + cue.id);
     if (block) block.style.left = (cue.startTime * SS.pps) + 'px';
   }
   if (SS.resizing) {
@@ -1796,51 +1833,35 @@ function ssCtxDelete(id) {
 function ssUpdatePlayhead() {
   const ph = document.getElementById('ss-playhead');
   if (!ph) return;
-  const x = SS.currentTime * SS.pps - SS.scrollX;
-  ph.style.left = x + 'px';
-  ph.style.display = x < 0 ? 'none' : 'block';
+  // Playhead is inside ss-tl-content which starts at x=0 in content coords
+  ph.style.left = (SS.currentTime * SS.pps) + 'px';
 }
 
 function ssAutoScrollPlayhead() {
   if (!SS.duration) return;
-  const wrap  = document.getElementById('ss-waveform-body');
-  if (!wrap) return;
-  const w     = wrap.clientWidth;
-  const x     = SS.currentTime * SS.pps;
-  const scrollX = SS.scrollX;
-  // Keep playhead in the middle 60% of the view
+  const scrollEl = document.getElementById('ss-tl-scroll');
+  if (!scrollEl) return;
+  const w       = scrollEl.clientWidth;
+  const x       = SS.currentTime * SS.pps;
+  const scrollX = scrollEl.scrollLeft;
   if (x > scrollX + w * 0.75 || x < scrollX + w * 0.1) {
-    const newScroll = Math.max(0, x - w * 0.3);
-    ssSyncScrollTo(newScroll);
+    scrollEl.scrollLeft = Math.max(0, x - w * 0.3);
   }
 }
 
 function ssUpdateScrollWidth() {
   if (!SS.duration) return;
-  const totalW = SS.duration * SS.pps;
-  document.getElementById('ss-hscroll-inner').style.width = totalW + 'px';
-  // Resize waveform canvas to new zoom
+  const totalW = Math.ceil(SS.duration * SS.pps);
+  // Set the content container width so the scroll bar appears naturally
+  const content = document.getElementById('ss-tl-content');
+  if (content) content.style.width = totalW + 'px';
   if (SS.audioBuffer) ssDrawWaveform();
   ssDrawRuler();
   ssRedrawCues();
 }
 
-function ssSyncScroll(el) {
-  SS.scrollX = el.scrollLeft;
-  // Sync ruler and all track bodies via translateX
-  document.getElementById('ss-ruler').style.transform         = `translateX(-${SS.scrollX}px)`;
-  document.getElementById('ss-waveform').style.transform      = `translateX(-${SS.scrollX}px)`;
-  SS_TRACK_ORDER.forEach(e => {
-    const t = document.getElementById(`ss-track-${e}`);
-    if (t) t.style.transform = `translateX(-${SS.scrollX}px)`;
-  });
-  ssUpdatePlayhead();
-}
-
-function ssSyncScrollTo(x) {
-  const bar = document.getElementById('ss-hscroll-bar');
-  if (bar) { bar.scrollLeft = x; ssSyncScroll(bar); }
-}
+// ssSyncScroll removed — ss-tl-scroll is a real overflow container now,
+// no translateX syncing needed. Playhead position is absolute in content coords.
 
 function ssUpdateTimeDisplay() {
   document.getElementById('ss-current-time').textContent = ssFormatTime(SS.currentTime, true);
