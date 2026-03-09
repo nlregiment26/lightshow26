@@ -467,6 +467,57 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
 .ss-ctx-item.danger{color:var(--red);}
 .ss-ctx-sep{height:1px;background:var(--border);margin:3px 0;}
 
+/* ── SCRUB BAR ── */
+.ss-scrub-wrap{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:10px 14px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.ss-scrub-track{
+  position:relative;height:20px;
+  background:rgba(255,255,255,0.05);
+  border-radius:10px;cursor:pointer;
+  overflow:visible;
+}
+.ss-scrub-track:hover { background:rgba(255,255,255,0.08); }
+.ss-scrub-played{
+  position:absolute;left:0;top:0;bottom:0;
+  background:rgba(138,36,51,0.5);
+  border-radius:10px 0 0 10px;
+  pointer-events:none;
+  width:0%;
+}
+.ss-scrub-head{
+  position:absolute;top:50%;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--maroon);
+  box-shadow:0 0 8px rgba(138,36,51,0.7);
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  left:0%;
+  transition:box-shadow 0.1s;
+  z-index:2;
+}
+.ss-scrub-track:hover .ss-scrub-head,
+.ss-scrub-track.dragging .ss-scrub-head {
+  box-shadow:0 0 14px rgba(138,36,51,1), 0 0 0 3px rgba(138,36,51,0.3);
+}
+.ss-scrub-markers{position:absolute;inset:0;pointer-events:none;}
+.ss-scrub-marker{
+  position:absolute;top:0;bottom:0;width:2px;
+  transform:translateX(-50%);
+  opacity:0.7;
+}
+.ss-scrub-marker-dot{
+  position:absolute;top:50%;width:6px;height:6px;border-radius:50%;
+  transform:translate(-50%,-50%);
+}
+.ss-scrub-labels{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);font-size:9px;color:var(--dim);
+  letter-spacing:0.08em;
+}
+
 /* Waveform canvas */
 #ss-waveform{display:block;width:100%;height:56px;}
 #ss-ruler{height:24px;}
@@ -723,6 +774,23 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
           <button class="ss-small-btn" onclick="ssSave()">💾 Save</button>
           <button class="ss-small-btn" onclick="ssLoad()">📂 Load</button>
           <button class="ss-small-btn danger" onclick="ssClearAll()">✕ Clear</button>
+        </div>
+      </div>
+
+      <!-- SCRUB BAR -->
+      <div class="ss-scrub-wrap" id="ss-scrub-wrap" style="display:none">
+        <div class="ss-scrub-track" id="ss-scrub-track"
+          onmousedown="ssScrubDown(event)"
+          ontouchstart="ssScrubTouchStart(event)">
+          <div class="ss-scrub-played" id="ss-scrub-played"></div>
+          <div class="ss-scrub-head"   id="ss-scrub-head"></div>
+          <!-- Cue markers rendered by JS -->
+          <div class="ss-scrub-markers" id="ss-scrub-markers"></div>
+        </div>
+        <div class="ss-scrub-labels">
+          <span id="ss-scrub-pos">0:00</span>
+          <span style="color:var(--dim)">drag to scrub</span>
+          <span id="ss-scrub-dur">0:00</span>
         </div>
       </div>
 
@@ -1279,8 +1347,10 @@ async function ssLoadFile(file) {
 
   document.getElementById('ss-total-time').textContent = ssFormatTime(SS.duration);
   document.getElementById('ss-transport').style.display    = 'flex';
+  document.getElementById('ss-scrub-wrap').style.display   = 'flex';
   document.getElementById('ss-timeline-wrap').style.display = 'flex';
   document.getElementById('ss-palette').style.display      = 'flex';
+  document.getElementById('ss-scrub-dur').textContent = ssFormatTime(SS.duration);
 
   ssDrawWaveform();
   ssDrawRuler();
@@ -1348,6 +1418,7 @@ function ssTick() {
   ssUpdatePlayhead();
   ssUpdateTimeDisplay();
   ssAutoScrollPlayhead();
+  ssScrubBarUpdate();
 
   // Live fire
   if (SS.liveFire && socket) {
@@ -1420,24 +1491,47 @@ function ssDrawWaveform() {
   }
   ctx.stroke();
 
-  // Waveform click → seek
-  body.onclick = (e) => {
+  // Waveform: click to seek, drag to scrub
+  let _wfDragging = false;
+  const doWfSeek = (e) => {
     const rect = body.getBoundingClientRect();
     const x    = e.clientX - rect.left + SS.scrollX;
-    const t    = x / SS.pps;
-    ssSeekTo(Math.max(0, Math.min(SS.duration, t)));
+    ssSeekTo(Math.max(0, Math.min(SS.duration, x / SS.pps)));
   };
+  body.onmousedown = (e) => { _wfDragging = true; doWfSeek(e); };
+  body.onmousemove = (e) => { if (_wfDragging) doWfSeek(e); };
+  body.onmouseup   = ()  => { _wfDragging = false; };
+  body.onmouseleave= ()  => { _wfDragging = false; };
 }
 
 function ssSeekTo(t) {
+  t = Math.max(0, Math.min(SS.duration || 0, t));
   const wasPlaying = SS.playing;
-  if (wasPlaying) ssPause();
+
+  // Stop current source cleanly regardless of play state
+  if (SS.playing) {
+    try { SS.sourceNode?.stop(); } catch(e) {}
+    cancelAnimationFrame(SS.rafId);
+    SS.playing = false;
+    document.getElementById('ss-play').textContent = '▶';
+  }
+
   SS.offsetAt = t;
-  // Re-fire tracking: mark cues before seek point as already fired
   SS.firedIds = new Set(SS.cues.filter(c => c.startTime < t).map(c => c.id));
-  if (wasPlaying) ssPlay();
-  ssUpdatePlayhead();
-  ssUpdateTimeDisplay();
+
+  // Always resume AudioContext - it may be suspended even when "paused"
+  if (SS.audioCtx) {
+    SS.audioCtx.resume().then(() => {
+      ssUpdatePlayhead();
+      ssUpdateTimeDisplay();
+      ssScrubBarUpdate();
+      if (wasPlaying) ssPlay();
+    });
+  } else {
+    ssUpdatePlayhead();
+    ssUpdateTimeDisplay();
+    ssScrubBarUpdate();
+  }
 }
 
 // ── RULER ──
@@ -1503,6 +1597,7 @@ function ssRebuildTracks() {
 
 // ── CUE RENDERING ──
 function ssRedrawCues() {
+  ssScrubBarDrawMarkers();
   SS_TRACK_ORDER.forEach(effect => {
     const track = document.getElementById(`ss-track-${effect}`);
     if (!track) return;
@@ -1809,6 +1904,87 @@ function hexToRgba(hex, alpha) {
   const g = parseInt(hex.slice(3,5),16);
   const b = parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ── SCRUB BAR ──
+let _scrubbing = false;
+
+function ssScrubDown(e) {
+  e.preventDefault();
+  _scrubbing = true;
+  document.getElementById('ss-scrub-track').classList.add('dragging');
+  ssScrubMove(e);
+  window.addEventListener('mousemove', ssScrubMove);
+  window.addEventListener('mouseup',   ssScrubUp);
+}
+
+function ssScrubTouchStart(e) {
+  _scrubbing = true;
+  document.getElementById('ss-scrub-track').classList.add('dragging');
+  ssScrubMoveTouch(e.touches[0]);
+  window.addEventListener('touchmove', ssScrubMoveTouch);
+  window.addEventListener('touchend',  ssScrubTouchEnd);
+}
+
+function ssScrubMove(e) {
+  if (!_scrubbing || !SS.duration) return;
+  const track = document.getElementById('ss-scrub-track');
+  const rect  = track.getBoundingClientRect();
+  const pct   = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const t     = pct * SS.duration;
+  ssSeekTo(t);
+}
+
+function ssScrubMoveTouch(e) {
+  if (!_scrubbing || !SS.duration) return;
+  const track = document.getElementById('ss-scrub-track');
+  const rect  = track.getBoundingClientRect();
+  const pct   = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  ssSeekTo(pct * SS.duration);
+}
+
+function ssScrubUp() {
+  _scrubbing = false;
+  document.getElementById('ss-scrub-track').classList.remove('dragging');
+  window.removeEventListener('mousemove', ssScrubMove);
+  window.removeEventListener('mouseup',   ssScrubUp);
+}
+
+function ssScrubTouchEnd() {
+  _scrubbing = false;
+  document.getElementById('ss-scrub-track').classList.remove('dragging');
+  window.removeEventListener('touchmove', ssScrubMoveTouch);
+  window.removeEventListener('touchend',  ssScrubTouchEnd);
+}
+
+// Update scrub bar position + cue markers
+function ssScrubBarUpdate() {
+  if (!SS.duration) return;
+  const pct = (SS.currentTime / SS.duration) * 100;
+  document.getElementById('ss-scrub-played').style.width = pct + '%';
+  document.getElementById('ss-scrub-head').style.left    = pct + '%';
+  document.getElementById('ss-scrub-pos').textContent    = ssFormatTime(SS.currentTime);
+}
+
+// Redraw cue markers on the scrub bar (called after cue changes)
+function ssScrubBarDrawMarkers() {
+  if (!SS.duration) return;
+  const container = document.getElementById('ss-scrub-markers');
+  container.innerHTML = '';
+  SS.cues.forEach(cue => {
+    const meta = SS_EFFECTS[cue.effect];
+    const pct  = (cue.startTime / SS.duration) * 100;
+    const el   = document.createElement('div');
+    el.className = 'ss-scrub-marker';
+    el.style.left       = pct + '%';
+    el.style.background = hexToRgba(cue.color, 0.9);
+    const dot = document.createElement('div');
+    dot.className = 'ss-scrub-marker-dot';
+    dot.style.background = cue.color;
+    dot.title = cue.effect + ' @ ' + ssFormatTime(cue.startTime);
+    el.appendChild(dot);
+    container.appendChild(el);
+  });
 }
 
 // Init song sync when DOM ready
