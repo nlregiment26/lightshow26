@@ -19,8 +19,12 @@
 html,body{
   width:100%;height:100%;overflow:hidden;background:var(--bg);
   color:var(--white);font-family:'Barlow',sans-serif;
-  touch-action:none;-webkit-tap-highlight-color:transparent;
+  -webkit-tap-highlight-color:transparent;
   -webkit-font-smoothing:antialiased;
+}
+/* Only block touch actions on the active show screen, not on UI screens with buttons */
+#screen-show.active, #screen-standby.active {
+  touch-action:none;
 }
 
 /* ── OVERLAY LAYERS ── */
@@ -58,7 +62,7 @@ html,body{
   opacity:0;pointer-events:none;
   transition:opacity 0.5s ease;
 }
-.screen.active{opacity:1;pointer-events:all;}
+.screen.active{opacity:1;pointer-events:auto;}
 
 /* WELCOME */
 #screen-welcome{
