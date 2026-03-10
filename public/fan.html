@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0A2334">
 <title>NL Regiment — Light Up</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
@@ -352,26 +353,77 @@ function goToPermission() {
 // ── ANDROID-OPTIMISED TORCH ──
 async function requestAndConnect() {
   showScreen('connecting');
-  await initTorch();
+  try {
+    await initTorch();
+  } catch(e) {
+    // Torch init failed — continue with screen-brightness fallback
+    hasTorch = false;
+    console.warn('Torch init failed, using screen fallback:', e);
+  }
   connectSocket();
+
+  // Safety: if still on connecting screen after 8s, force standby (socket may have connected without event)
+  setTimeout(() => {
+    if (document.getElementById('screen-connecting').classList.contains('active') && socket && socket.connected) {
+      showScreen('standby');
+    }
+  }, 8000);
 }
 
 async function initTorch() {
+  // Samsung / Android Chrome often won't report torch capability unless:
+  //  1. The stream is connected to a <video> element (keeps track alive)
+  //  2. A short settling delay is given after getUserMedia resolves
+  //  3. Lower resolutions are tried (high res can block torch on some chipsets)
   const constraints = [
-    { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 } } },
+    { video: { facingMode: { exact: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } } },
     { video: { facingMode: 'environment' } },
     { video: true }
   ];
+
+  // Hidden video element keeps the camera pipeline alive on Samsung/Android
+  if (!document.getElementById('_torch-video')) {
+    const v = document.createElement('video');
+    v.id = '_torch-video';
+    v.setAttribute('autoplay', '');
+    v.setAttribute('playsinline', '');
+    v.setAttribute('muted', '');
+    v.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none;';
+    document.body.appendChild(v);
+  }
+  const videoSink = document.getElementById('_torch-video');
+
   for (const c of constraints) {
     try {
       if (torchStream) torchStream.getTracks().forEach(t => t.stop());
       torchStream = await navigator.mediaDevices.getUserMedia(c);
       torchTrack  = torchStream.getVideoTracks()[0];
-      const caps  = torchTrack.getCapabilities ? torchTrack.getCapabilities() : {};
-      hasTorch    = caps.torch === true;
+
+      // Attach stream to video element — critical for Samsung Internet & some Android Chrome builds
+      videoSink.srcObject = torchStream;
+      try { await videoSink.play(); } catch(_) {}
+
+      // Samsung often needs a brief settling period before getCapabilities reports torch
+      await sleep(300);
+
+      const caps = torchTrack.getCapabilities ? torchTrack.getCapabilities() : {};
+      hasTorch   = caps.torch === true;
+
       if (hasTorch) {
         await torchTrack.applyConstraints({ advanced: [{ torch: false }] });
         return;
+      }
+
+      // Fallback: try ImageCapture API (supported on many Android browsers)
+      if ('ImageCapture' in window) {
+        try {
+          const ic = new ImageCapture(torchTrack);
+          const photoCapabilities = await ic.getPhotoCapabilities();
+          if (photoCapabilities.fillLightMode && photoCapabilities.fillLightMode.includes('flash')) {
+            hasTorch = true;
+            return;
+          }
+        } catch(_) {}
       }
     } catch(e) { continue; }
   }
@@ -380,8 +432,26 @@ async function initTorch() {
 
 async function setTorch(on) {
   if (hasTorch && torchTrack) {
-    try { await torchTrack.applyConstraints({ advanced: [{ torch: on }] }); }
-    catch(e) { hasTorch = false; }
+    // Check if track is still alive — Android kills it on tab switch / screen lock
+    if (torchTrack.readyState !== 'live') {
+      try { await initTorch(); } catch(_) { hasTorch = false; }
+    }
+
+    if (hasTorch && torchTrack && torchTrack.readyState === 'live') {
+      try {
+        await torchTrack.applyConstraints({ advanced: [{ torch: on }] });
+      } catch(e) {
+        // Some Samsung browsers need ImageCapture fallback
+        if ('ImageCapture' in window) {
+          try {
+            const ic = new ImageCapture(torchTrack);
+            await ic.setOptions({ fillLightMode: on ? 'flash' : 'off' });
+          } catch(_) { hasTorch = false; }
+        } else {
+          hasTorch = false;
+        }
+      }
+    }
   }
   // Screen brightness fallback ONLY when no physical torch available
   // (COLOR_HOLD handles its own screen colour directly)
@@ -597,12 +667,37 @@ function handleCommand(cmd) {
 }
 
 // Wake lock
+let wakeLockSentinel = null;
 async function requestWakeLock() {
-  if ('wakeLock' in navigator) try { await navigator.wakeLock.request('screen'); } catch(e) {}
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+    } catch(e) {}
+  }
 }
 requestWakeLock();
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') requestWakeLock();
+
+// On Android, returning from background / screen lock kills the camera track.
+// Re-init torch and re-acquire wake lock on visibility change.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible') {
+    requestWakeLock();
+    // Re-init torch if track died while backgrounded (common on Android/Samsung)
+    if (torchTrack && torchTrack.readyState !== 'live') {
+      try { await initTorch(); } catch(_) {}
+    }
+  }
+});
+
+// Samsung Internet specific: also listen for pageshow (bfcache restore)
+window.addEventListener('pageshow', async (e) => {
+  if (e.persisted) {
+    requestWakeLock();
+    if (torchTrack && torchTrack.readyState !== 'live') {
+      try { await initTorch(); } catch(_) {}
+    }
+  }
 });
 </script>
 </body>
