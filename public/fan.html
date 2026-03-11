@@ -45,6 +45,7 @@ html,body{
   position:fixed;inset:0;z-index:95;
   display:none;align-items:center;justify-content:center;
   background:#000;
+  pointer-events:none; /* never intercept taps */
 }
 #image-layer.active{display:flex;}
 #image-display{
@@ -61,6 +62,7 @@ html,body{
   padding:40px 28px;
   opacity:0;pointer-events:none;
   transition:opacity 0.5s ease;
+  z-index:10; /* always above the z-index:0 noise overlay */
 }
 .screen.active{opacity:1;pointer-events:auto;}
 
@@ -239,7 +241,8 @@ html,body{
 .btn-retry{background:rgba(138,36,51,0.15);border:1px solid rgba(138,36,51,0.4);color:var(--tan);padding:12px 28px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;}
 
 /* grain overlay */
-body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");pointer-events:none;z-index:200;opacity:0.6;}
+/* Noise overlay — z-index:0 so it never sits above screens or buttons */
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");pointer-events:none;touch-action:none;z-index:0;opacity:0.6;}
 </style>
 </head>
 <body>
