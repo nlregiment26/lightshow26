@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0A2334">
 <title>NL Regiment — Light Up</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
@@ -20,8 +19,12 @@
 html,body{
   width:100%;height:100%;overflow:hidden;background:var(--bg);
   color:var(--white);font-family:'Barlow',sans-serif;
-  touch-action:none;-webkit-tap-highlight-color:transparent;
+  -webkit-tap-highlight-color:transparent;
   -webkit-font-smoothing:antialiased;
+}
+/* Only block touch actions on the active show screen, not on UI screens with buttons */
+#screen-show.active, #screen-standby.active {
+  touch-action:none;
 }
 
 /* ── OVERLAY LAYERS ── */
@@ -59,7 +62,7 @@ html,body{
   opacity:0;pointer-events:none;
   transition:opacity 0.5s ease;
 }
-.screen.active{opacity:1;pointer-events:all;}
+.screen.active{opacity:1;pointer-events:auto;}
 
 /* WELCOME */
 #screen-welcome{
@@ -165,6 +168,7 @@ html,body{
 @keyframes spin{to{transform:rotate(360deg)}}
 .connecting-text{font-family:'NLRegiment','Barlow Condensed',sans-serif;font-size:26px;letter-spacing:0.1em;color:var(--tan);}
 .connecting-sub{font-size:11px;color:var(--dim);letter-spacing:0.15em;text-transform:uppercase;}
+.connecting-hint{font-size:11px;color:rgba(255,255,255,0.2);text-align:center;max-width:260px;line-height:1.6;margin-top:8px;padding:0 20px;}
 
 /* STANDBY */
 #screen-standby{background:radial-gradient(ellipse at 50% 50%,rgba(10,35,52,0.9) 0%,var(--bg) 70%);}
@@ -282,7 +286,8 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 <div class="screen" id="screen-connecting">
   <div class="connecting-ring"></div>
   <div class="connecting-text">Connecting</div>
-  <div class="connecting-sub">Joining the show...</div>
+  <div class="connecting-sub" id="connecting-sub">Joining the show...</div>
+  <div class="connecting-hint" id="connecting-hint"></div>
 </div>
 
 <!-- STANDBY -->
@@ -333,10 +338,12 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 const params = new URLSearchParams(window.location.search);
 const showId = params.get('showId') || 'default';
 const sector = params.get('sector') || '0';
-const isIOS  = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const ua      = navigator.userAgent;
+const isIOS    = /iPad|iPhone|iPod/.test(ua);
+const isSamsung = /Samsung|SM-|GT-/i.test(ua);
 
 let socket = null, torchStream = null, torchTrack = null, hasTorch = false;
-let flashInterval = null, sparkleRafId = null, sparkleSpawnId = null, fadeRafId = null;
+let flashInterval = null, sparkleSpawnId = null;
 let currentFlashColor = '#ffffff';
 let sparkles = [];
 
@@ -350,116 +357,107 @@ function goToPermission() {
   showScreen('permission');
 }
 
-// ── ANDROID-OPTIMISED TORCH ──
-async function requestAndConnect() {
-  showScreen('connecting');
-  try {
-    await initTorch();
-  } catch(e) {
-    // Torch init failed — continue with screen-brightness fallback
-    hasTorch = false;
-    console.warn('Torch init failed, using screen fallback:', e);
-  }
-  connectSocket();
-
-  // Safety: if still on connecting screen after 8s, force standby (socket may have connected without event)
-  setTimeout(() => {
-    if (document.getElementById('screen-connecting').classList.contains('active') && socket && socket.connected) {
-      showScreen('standby');
-    }
-  }, 8000);
+// ── CONNECT FLOW ──
+function setConnectStatus(msg, hint='') {
+  const sub  = document.getElementById('connecting-sub');
+  const hint_el = document.getElementById('connecting-hint');
+  if (sub) sub.textContent = msg;
+  if (hint_el) hint_el.textContent = hint;
 }
 
+async function requestAndConnect() {
+  showScreen('connecting');
+  setConnectStatus('Connecting to show...');
+
+  // Connect socket immediately — user joins the show without waiting for torch
+  connectSocket();
+
+  // Torch init runs in background
+  setConnectStatus('Connecting to show...', isSamsung ? 'Requesting flashlight access...' : '');
+  initTorch()
+    .then(() => {
+      if (hasTorch) setConnectStatus('Connecting to show...', '✓ Flashlight ready');
+      else          setConnectStatus('Connecting to show...', 'Using screen flash mode');
+    })
+    .catch(() => {
+      hasTorch = false;
+      setConnectStatus('Connecting to show...', 'Using screen flash mode');
+    });
+}
+
+// Samsung-specific constraint order:
+// Samsung devices with multiple rear cameras reject { exact: 'environment' } with OverconstrainedError.
+// Samsung Internet doesn't support torch at all via constraints.
+// Strategy: try 5 constraint levels, keep going until one works, give up cleanly.
 async function initTorch() {
-  // Samsung / Android Chrome often won't report torch capability unless:
-  //  1. The stream is connected to a <video> element (keeps track alive)
-  //  2. A short settling delay is given after getUserMedia resolves
-  //  3. Lower resolutions are tried (high res can block torch on some chipsets)
-  const constraints = [
-    { video: { facingMode: { exact: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } } },
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+  // On Samsung Internet, torch API is not supported — skip straight to screen fallback
+  if (/SamsungBrowser/i.test(ua)) {
+    hasTorch = false;
+    return;
+  }
+
+  const constraintSets = [
+    // Most permissive first on Samsung — exact facingMode rejects on multi-lens devices
     { video: { facingMode: 'environment' } },
-    { video: true }
+    { video: { facingMode: { exact: 'environment' } } },
+    { video: { facingMode: 'user' } },  // front camera as last resort (still has torch on some devices)
+    { video: true },
   ];
 
-  // Hidden video element keeps the camera pipeline alive on Samsung/Android
-  if (!document.getElementById('_torch-video')) {
-    const v = document.createElement('video');
-    v.id = '_torch-video';
-    v.setAttribute('autoplay', '');
-    v.setAttribute('playsinline', '');
-    v.setAttribute('muted', '');
-    v.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0.001;pointer-events:none;';
-    document.body.appendChild(v);
-  }
-  const videoSink = document.getElementById('_torch-video');
-
-  for (const c of constraints) {
+  for (const c of constraintSets) {
     try {
-      if (torchStream) torchStream.getTracks().forEach(t => t.stop());
-      torchStream = await navigator.mediaDevices.getUserMedia(c);
-      torchTrack  = torchStream.getVideoTracks()[0];
+      if (torchStream) { torchStream.getTracks().forEach(t => t.stop()); torchStream = null; }
+      torchStream = await Promise.race([
+        navigator.mediaDevices.getUserMedia(c),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+      ]);
+      torchTrack = torchStream.getVideoTracks()[0];
+      if (!torchTrack) continue;
 
-      // Attach stream to video element — critical for Samsung Internet & some Android Chrome builds
-      videoSink.srcObject = torchStream;
-      try { await videoSink.play(); } catch(_) {}
+      // getCapabilities is not available in all browsers — guard it
+      let caps = {};
+      try { caps = torchTrack.getCapabilities?.() ?? {}; } catch(e) {}
 
-      // Samsung often needs a brief settling period before getCapabilities reports torch
-      await sleep(300);
-
-      const caps = torchTrack.getCapabilities ? torchTrack.getCapabilities() : {};
-      hasTorch   = caps.torch === true;
+      hasTorch = caps.torch === true;
 
       if (hasTorch) {
-        await torchTrack.applyConstraints({ advanced: [{ torch: false }] });
-        return;
-      }
-
-      // Fallback: try ImageCapture API (supported on many Android browsers)
-      if ('ImageCapture' in window) {
+        // Confirm torch actually works before declaring success
         try {
-          const ic = new ImageCapture(torchTrack);
-          const photoCapabilities = await ic.getPhotoCapabilities();
-          if (photoCapabilities.fillLightMode && photoCapabilities.fillLightMode.includes('flash')) {
-            hasTorch = true;
-            return;
-          }
-        } catch(_) {}
+          await torchTrack.applyConstraints({ advanced: [{ torch: false }] });
+          return; // success
+        } catch(e) {
+          hasTorch = false;
+          // torch key reported but applyConstraints rejected — keep trying other constraints
+        }
       }
-    } catch(e) { continue; }
+      // Got a stream but no torch — keep the stream (we don't need it) and try next constraint
+    } catch(e) {
+      // OverconstrainedError, NotAllowedError, etc — try next
+      continue;
+    }
   }
+
+  // Nothing worked — screen flash fallback will be used
   hasTorch = false;
 }
 
 async function setTorch(on) {
   if (hasTorch && torchTrack) {
-    // Check if track is still alive — Android kills it on tab switch / screen lock
-    if (torchTrack.readyState !== 'live') {
-      try { await initTorch(); } catch(_) { hasTorch = false; }
-    }
-
-    if (hasTorch && torchTrack && torchTrack.readyState === 'live') {
-      try {
-        await torchTrack.applyConstraints({ advanced: [{ torch: on }] });
-      } catch(e) {
-        // Some Samsung browsers need ImageCapture fallback
-        if ('ImageCapture' in window) {
-          try {
-            const ic = new ImageCapture(torchTrack);
-            await ic.setOptions({ fillLightMode: on ? 'flash' : 'off' });
-          } catch(_) { hasTorch = false; }
-        } else {
-          hasTorch = false;
-        }
-      }
+    try {
+      await torchTrack.applyConstraints({ advanced: [{ torch: on }] });
+      return; // torch fired successfully, don't also flash screen
+    } catch(e) {
+      hasTorch = false; // torch broke mid-show, fall through to screen flash
     }
   }
-  // Screen brightness fallback ONLY when no physical torch available
-  // (COLOR_HOLD handles its own screen colour directly)
-  if (!hasTorch) {
-    const bl = document.getElementById('brightness-layer');
-    bl.style.background = currentFlashColor;
-    if (on) bl.classList.add('on'); else bl.classList.remove('on');
-  }
+  // Screen brightness fallback — used when no torch available (Samsung Internet,
+  // permission denied, or torch API not supported)
+  // COLOR_HOLD overrides this directly, so this only fires for other effects
+  const bl = document.getElementById('brightness-layer');
+  bl.style.background = currentFlashColor;
+  if (on) bl.classList.add('on'); else bl.classList.remove('on');
 }
 
 // ── SPARKLE ENGINE ──
@@ -573,14 +571,51 @@ function hideImage() {
 
 // ── SOCKET.IO ──
 function connectSocket() {
+  const device = isIOS ? 'ios' : isSamsung ? 'samsung' : 'android';
+
   socket = io('/fan', {
-    query: { showId, sector, device: isIOS ? 'ios' : 'android' },
-    reconnection: true, reconnectionAttempts: 15, reconnectionDelay: 1000,
+    query: { showId, sector, device },
+    // Start with polling then upgrade — Samsung Knox and some Android firewalls
+    // block WebSocket upgrades, so polling-first gets them connected reliably
+    transports: ['polling', 'websocket'],
+    reconnection: true,
+    reconnectionAttempts: 20,
+    reconnectionDelay: 1500,
+    reconnectionDelayMax: 8000,
+    timeout: 20000,
   });
-  socket.on('connect',    () => showScreen('standby'));
-  socket.on('show_state', s => { if (s.status === 'live') showScreen('show'); else showScreen('standby'); });
-  socket.on('command',    handleCommand);
-  socket.on('connect_error', () => showError('Could not reach show server. Check your WiFi.'));
+
+  let connectErrorCount = 0;
+
+  socket.on('connect', () => {
+    connectErrorCount = 0;
+    showScreen('standby');
+  });
+
+  socket.on('show_state', s => {
+    if (s.status === 'live') showScreen('show');
+    else showScreen('standby');
+  });
+
+  socket.on('command', handleCommand);
+
+  socket.on('connect_error', (err) => {
+    connectErrorCount++;
+    // Give it several attempts before showing error — Samsung network switching
+    // (WiFi ↔ mobile data handoff) causes temporary failures
+    if (connectErrorCount >= 5) {
+      showError('Could not reach show server. Make sure you're on the venue WiFi.');
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    // 'transport close' on Samsung = network briefly dropped, auto-reconnect handles it
+    // Only show error for permanent failures
+    if (reason === 'io server disconnect') {
+      showError('Disconnected by server.');
+    }
+  });
+
   socket.on('error', e => showError(e.message || 'Connection error.'));
 }
 function showError(msg) { document.getElementById('error-msg').textContent = msg; showScreen('error'); }
@@ -667,37 +702,12 @@ function handleCommand(cmd) {
 }
 
 // Wake lock
-let wakeLockSentinel = null;
 async function requestWakeLock() {
-  if ('wakeLock' in navigator) {
-    try {
-      wakeLockSentinel = await navigator.wakeLock.request('screen');
-      wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
-    } catch(e) {}
-  }
+  if ('wakeLock' in navigator) try { await navigator.wakeLock.request('screen'); } catch(e) {}
 }
 requestWakeLock();
-
-// On Android, returning from background / screen lock kills the camera track.
-// Re-init torch and re-acquire wake lock on visibility change.
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible') {
-    requestWakeLock();
-    // Re-init torch if track died while backgrounded (common on Android/Samsung)
-    if (torchTrack && torchTrack.readyState !== 'live') {
-      try { await initTorch(); } catch(_) {}
-    }
-  }
-});
-
-// Samsung Internet specific: also listen for pageshow (bfcache restore)
-window.addEventListener('pageshow', async (e) => {
-  if (e.persisted) {
-    requestWakeLock();
-    if (torchTrack && torchTrack.readyState !== 'live') {
-      try { await initTorch(); } catch(_) {}
-    }
-  }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestWakeLock();
 });
 </script>
 </body>

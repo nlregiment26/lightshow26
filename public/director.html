@@ -594,6 +594,10 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
       <div class="stat-value" id="peak-count">—</div>
       <div class="stat-label">Peak</div>
     </div>
+    <div class="stat-chip" id="mem-chip" title="Server memory usage">
+      <div class="stat-value" id="mem-used" style="font-size:13px">—</div>
+      <div class="stat-label">Srv RAM</div>
+    </div>
     <div class="conn-status">
       <div class="conn-dot" id="conn-dot"></div>
       <span id="conn-label">Disconnected</span>
@@ -924,6 +928,22 @@ input[type="range"]::-webkit-slider-thumb{appearance:none;width:14px;height:14px
 let socket = null, showId = 'default', dirPass = '';
 let selectedColor = '#ffffff', selectedFit = 'cover';
 let showRunning = false, showStartTime = null, timerInterval = null;
+
+// ── SERVER HEALTH POLL ──
+async function pollServerHealth() {
+  try {
+    const r  = await fetch('/health');
+    const d  = await r.json();
+    const el = document.getElementById('mem-used');
+    if (el) {
+      el.textContent = d.memory.heapUsedMB + 'MB';
+      el.style.color = d.memory.heapUsedMB < 500  ? 'var(--tan)' :
+                       d.memory.heapUsedMB < 1500 ? '#f5a623' : '#ff4444';
+    }
+  } catch(e) {}
+}
+setInterval(pollServerHealth, 5000);
+pollServerHealth();
 let sequence = [], looping = false, seqRunning = false;
 let imageLibrary = [];    // [{ id, name, uploadedAt, thumb }]
 let currentPushedId = null;

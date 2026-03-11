@@ -1,10 +1,13 @@
 /**
  * LIGHTSHOW SERVER — NL Regiment Edition
+ * Hardened for 6,300+ concurrent fans
  *
- * New in this version:
- *   - SPARKLE: staggered per-fan torch delays for organic twinkling effect
- *   - IMAGE: director can upload images, server pushes data URL to all fans
- *   - Images stored in memory (no disk needed), capped at 20 per show
+ * Key changes for scale:
+ *   - SPARKLE/WAVE use chunked async loops to avoid blocking the event loop
+ *   - broadcastStats is debounced (50ms) — mass disconnects don't cascade
+ *   - Console logging throttled — no per-fan join/leave spam at scale
+ *   - Socket.IO ping tuning for arena WiFi (longer intervals, more tolerance)
+ *   - uv_threadpool_size hint in startup for DNS/file I/O headroom
  */
 
 const express    = require('express');
@@ -22,7 +25,7 @@ const PORT          = process.env.PORT          || 3000;
 const DIRECTOR_PASS = process.env.DIRECTOR_PASS || 'stadium2024';
 const PUBLIC_URL    = process.env.PUBLIC_URL    || `http://localhost:${PORT}`;
 const MAX_FANS      = parseInt(process.env.MAX_FANS || '50000');
-const MAX_IMAGE_KB  = 2048;  // 2 MB max per uploaded image
+const MAX_IMAGE_KB  = 2048;
 
 // ─────────────────────────────────────────────
 //  EXPRESS + HTTP SERVER
@@ -30,7 +33,10 @@ const MAX_IMAGE_KB  = 2048;  // 2 MB max per uploaded image
 const app    = express();
 const server = http.createServer(app);
 
-// Multer: store uploads in memory as Buffer, 2 MB limit
+// Keep HTTP connections alive — reduces reconnect overhead at scale
+server.keepAliveTimeout    = 65000;
+server.headersTimeout      = 66000;
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_IMAGE_KB * 1024 },
@@ -46,12 +52,17 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // ─────────────────────────────────────────────
 //  SOCKET.IO
+//  Tuned for arena WiFi: longer pings, more misses allowed
 // ─────────────────────────────────────────────
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-  perMessageDeflate: false,
+  cors:              { origin: '*', methods: ['GET', 'POST'] },
+  perMessageDeflate: false,   // CPU cost not worth it at this scale
   httpCompression:   false,
-  maxHttpBufferSize: 4e6,  // 4 MB — needed for image data URL relay
+  maxHttpBufferSize: 4e6,
+  pingInterval:      25000,   // default 25s — fine for arena
+  pingTimeout:       20000,   // more tolerant than default (5s) for congested WiFi
+  connectTimeout:    30000,
+  transports:        ['polling', 'websocket'],  // polling first for Samsung/Knox
 });
 
 // ─────────────────────────────────────────────
@@ -65,13 +76,14 @@ function getOrCreateShow(showId) {
       id:            showId,
       status:        'standby',
       startedAt:     null,
-      fans:          new Map(),   // socketId → { joinedAt, sector, device }
+      fans:          new Map(),
       directors:     new Set(),
       peakFans:      0,
       commandLog:    [],
       currentEffect: null,
-      images:        [],          // [{ id, name, dataUrl, uploadedAt }]
-      currentImage:  null,        // id of image currently displayed (or null)
+      images:        [],
+      currentImage:  null,
+      _statsBroadcastTimer: null,   // for debounce
     });
   }
   return shows.get(showId);
@@ -91,9 +103,49 @@ function showStats(show) {
   };
 }
 
+// Debounced stats broadcast — coalesces bursts of join/leave into one emit
+// Critical at scale: 6,300 simultaneous disconnects → 1 broadcast, not 6,300
 function broadcastStats(show) {
-  io.to(`directors:${show.id}`).emit('stats_update', showStats(show));
+  if (show._statsBroadcastTimer) return;
+  show._statsBroadcastTimer = setTimeout(() => {
+    show._statsBroadcastTimer = null;
+    directorNS.to(`directors:${show.id}`).emit('stats_update', showStats(show));
+  }, 50);
 }
+
+// ─────────────────────────────────────────────
+//  CHUNKED ASYNC EMIT
+//  Sends to fans in batches of CHUNK_SIZE, yielding between chunks.
+//  Prevents blocking the event loop for SPARKLE/WAVE at 6k+ fans.
+// ─────────────────────────────────────────────
+const CHUNK_SIZE = 200;
+
+async function emitToFansChunked(fanMap, buildPayload) {
+  const entries = [...fanMap.entries()];
+  for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+    const chunk = entries.slice(i, i + CHUNK_SIZE);
+    for (const [socketId, fanData] of chunk) {
+      const payload = buildPayload(socketId, fanData);
+      if (payload) fanNS.to(socketId).emit('command', payload);
+    }
+    // Yield to event loop between chunks
+    if (i + CHUNK_SIZE < entries.length) {
+      await new Promise(r => setImmediate(r));
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+//  LOG THROTTLE
+//  At 6k fans, per-connection logs flood stdout and slow I/O
+// ─────────────────────────────────────────────
+let _joinCount = 0, _leaveCount = 0;
+setInterval(() => {
+  if (_joinCount > 0 || _leaveCount > 0) {
+    console.log(`[FAN]  +${_joinCount} joined, -${_leaveCount} left this second`);
+    _joinCount = 0; _leaveCount = 0;
+  }
+}, 1000);
 
 // ─────────────────────────────────────────────
 //  FAN NAMESPACE  /fan
@@ -111,26 +163,27 @@ fanNS.on('connection', (socket) => {
   }
 
   show.fans.set(socket.id, {
-    joinedAt:  Date.now(),
-    sector:    socket.handshake.query.sector || '0',
-    device:    socket.handshake.query.device || 'unknown',
+    joinedAt: Date.now(),
+    sector:   socket.handshake.query.sector || '0',
+    device:   socket.handshake.query.device || 'unknown',
   });
   if (show.fans.size > show.peakFans) show.peakFans = show.fans.size;
 
   socket.join(`fans:${showId}`);
   socket.emit('show_state', showStats(show));
 
-  // If a show is live and an image is currently displayed, send it immediately
+  // Late-joining fan gets current image immediately
   if (show.status === 'live' && show.currentImage) {
     const img = show.images.find(i => i.id === show.currentImage);
     if (img) socket.emit('command', { type: 'IMAGE', dataUrl: img.dataUrl, imageId: img.id });
   }
 
+  _joinCount++;
   broadcastStats(show);
-  console.log(`[FAN]  +1 fan on "${showId}" (total: ${show.fans.size})`);
 
   socket.on('disconnect', () => {
     show.fans.delete(socket.id);
+    _leaveCount++;
     broadcastStats(show);
   });
 });
@@ -151,81 +204,62 @@ directorNS.on('connection', (socket) => {
 
   show.directors.add(socket.id);
   socket.join(`directors:${showId}`);
-  console.log(`[DIR]  Director connected to show "${showId}"`);
+  console.log(`[DIR]  Director connected to show "${showId}" (${show.fans.size} fans)`);
 
   socket.emit('show_state', showStats(show));
-
-  // Send image library to director on connect
   socket.emit('image_library', show.images.map(img => ({
-    id:         img.id,
-    name:       img.name,
-    uploadedAt: img.uploadedAt,
-    thumb:      img.dataUrl,  // director gets full data; fans only get it on push
+    id: img.id, name: img.name, uploadedAt: img.uploadedAt, thumb: img.dataUrl,
   })));
 
   // ── SHOW CONTROL ──
   socket.on('start_show', () => {
     show.status    = 'live';
     show.startedAt = Date.now();
-    io.of('/fan').to(`fans:${showId}`).emit('command', { type: 'SHOW_START' });
+    fanNS.to(`fans:${showId}`).emit('command', { type: 'SHOW_START' });
     logCommand(show, 'SHOW_START', {});
     broadcastStats(show);
-    console.log(`[SHOW] "${showId}" started`);
+    console.log(`[SHOW] "${showId}" started — ${show.fans.size} fans connected`);
   });
 
   socket.on('end_show', () => {
     show.status       = 'standby';
     show.currentImage = null;
-    io.of('/fan').to(`fans:${showId}`).emit('command', { type: 'SHOW_END' });
+    fanNS.to(`fans:${showId}`).emit('command', { type: 'SHOW_END' });
     logCommand(show, 'SHOW_END', {});
     broadcastStats(show);
     console.log(`[SHOW] "${showId}" ended`);
   });
 
   // ── EFFECT COMMANDS ──
-  socket.on('fire_effect', (cmd) => {
+  socket.on('fire_effect', async (cmd) => {
     if (!cmd || !cmd.type) return;
     let safe;
     try { safe = sanitizeCommand(cmd); } catch(e) { return; }
 
     show.currentEffect = safe.type;
-    show.currentImage  = null;  // clear image when effect fires
+    show.currentImage  = null;
 
     if (safe.type === 'WAVE') {
-      // Per-fan sector delay
-      show.fans.forEach((fanData, fanSocketId) => {
+      // Per-sector delay — chunked to avoid blocking
+      await emitToFansChunked(show.fans, (socketId, fanData) => {
         const sector = parseInt(fanData.sector) || 0;
-        const delay  = sector * (safe.sectorDelay || 80);
-        fanNS.to(fanSocketId).emit('command', { ...safe, delay });
+        return { ...safe, delay: sector * (safe.sectorDelay || 80) };
       });
 
     } else if (safe.type === 'SPARKLE') {
-      // ── STAGGERED SPARKLE ──
-      // Each fan gets a unique random torch schedule:
-      //   - flickerDelay:    when their first flicker starts (0–sparkleWindow ms)
-      //   - flickerCount:    how many times their torch fires (2–8)
-      //   - flickerInterval: ms between their own flickers (150–500ms)
-      //   - flickerDuration: how long each torch-on lasts (40–120ms)
-      // This creates organic, crowd-wide twinkling rather than one sync burst.
+      // Unique random schedule per fan — chunked
       const sparkleWindow = safe.duration || 6000;
-
-      show.fans.forEach((fanData, fanSocketId) => {
-        const flickerDelay    = Math.floor(Math.random() * sparkleWindow * 0.85);
-        const flickerCount    = 2 + Math.floor(Math.random() * 7);    // 2–8 flickers
-        const flickerInterval = 150 + Math.floor(Math.random() * 350); // 150–500ms apart
-        const flickerDuration = 40  + Math.floor(Math.random() * 80);  // 40–120ms on
-
-        fanNS.to(fanSocketId).emit('command', {
-          ...safe,
-          flickerDelay,
-          flickerCount,
-          flickerInterval,
-          flickerDuration,
-        });
-      });
+      await emitToFansChunked(show.fans, () => ({
+        ...safe,
+        flickerDelay:    Math.floor(Math.random() * sparkleWindow * 0.85),
+        flickerCount:    2 + Math.floor(Math.random() * 7),
+        flickerInterval: 150 + Math.floor(Math.random() * 350),
+        flickerDuration: 40  + Math.floor(Math.random() * 80),
+      }));
 
     } else {
-      io.of('/fan').to(`fans:${showId}`).emit('command', safe);
+      // Broadcast to room — Socket.IO handles this efficiently in one shot
+      fanNS.to(`fans:${showId}`).emit('command', safe);
     }
 
     logCommand(show, safe.type, safe);
@@ -233,34 +267,31 @@ directorNS.on('connection', (socket) => {
   });
 
   // ── IMAGE PUSH ──
-  // Director sends: { imageId } to push an already-uploaded image to all fans
   socket.on('push_image', ({ imageId, fit, bgColor }) => {
     const img = show.images.find(i => i.id === imageId);
     if (!img) return;
     show.currentEffect = 'IMAGE';
     show.currentImage  = imageId;
-    io.of('/fan').to(`fans:${showId}`).emit('command', {
-      type:     'IMAGE',
-      dataUrl:  img.dataUrl,
+    fanNS.to(`fans:${showId}`).emit('command', {
+      type:    'IMAGE',
+      dataUrl: img.dataUrl,
       imageId,
-      fit:      fit || 'cover',     // cover | contain | fill
-      bgColor:  bgColor || '#000000',
+      fit:     fit || 'cover',
+      bgColor: bgColor || '#000000',
     });
     logCommand(show, 'IMAGE', { imageId, name: img.name });
     broadcastStats(show);
     console.log(`[IMG]  Pushed "${img.name}" to "${showId}"`);
   });
 
-  // ── IMAGE CLEAR ──
   socket.on('clear_image', () => {
     show.currentImage  = null;
     show.currentEffect = 'BLACKOUT';
-    io.of('/fan').to(`fans:${showId}`).emit('command', { type: 'BLACKOUT' });
+    fanNS.to(`fans:${showId}`).emit('command', { type: 'BLACKOUT' });
     logCommand(show, 'BLACKOUT', {});
     broadcastStats(show);
   });
 
-  // ── DELETE IMAGE from library ──
   socket.on('delete_image', ({ imageId }) => {
     show.images = show.images.filter(i => i.id !== imageId);
     if (show.currentImage === imageId) show.currentImage = null;
@@ -277,26 +308,23 @@ directorNS.on('connection', (socket) => {
     for (const cue of sequence) {
       let safe;
       try { safe = sanitizeCommand(cue); } catch(e) { continue; }
-      const gap = cue.gap || 1500;
 
       if (safe.type === 'SPARKLE') {
         const sparkleWindow = safe.duration || 6000;
-        show.fans.forEach((fanData, fanSocketId) => {
-          fanNS.to(fanSocketId).emit('command', {
-            ...safe,
-            flickerDelay:    Math.floor(Math.random() * sparkleWindow * 0.85),
-            flickerCount:    2 + Math.floor(Math.random() * 7),
-            flickerInterval: 150 + Math.floor(Math.random() * 350),
-            flickerDuration: 40  + Math.floor(Math.random() * 80),
-          });
-        });
+        await emitToFansChunked(show.fans, () => ({
+          ...safe,
+          flickerDelay:    Math.floor(Math.random() * sparkleWindow * 0.85),
+          flickerCount:    2 + Math.floor(Math.random() * 7),
+          flickerInterval: 150 + Math.floor(Math.random() * 350),
+          flickerDuration: 40  + Math.floor(Math.random() * 80),
+        }));
       } else {
-        io.of('/fan').to(`fans:${showId}`).emit('command', safe);
+        fanNS.to(`fans:${showId}`).emit('command', safe);
       }
 
       logCommand(show, safe.type, safe);
       broadcastStats(show);
-      await sleep(gap);
+      await sleep(cue.gap || 1500);
     }
   });
 
@@ -307,44 +335,28 @@ directorNS.on('connection', (socket) => {
 });
 
 // ─────────────────────────────────────────────
-//  IMAGE UPLOAD REST ENDPOINT
-//  POST /api/upload/:showId
-//  Multipart form: field "image"
+//  IMAGE UPLOAD
 // ─────────────────────────────────────────────
 app.post('/api/upload/:showId', (req, res, next) => {
-  // Verify director password in Authorization header or query
   const pass = req.headers['x-director-pass'] || req.query.pass;
   if (pass !== DIRECTOR_PASS) return res.status(401).json({ error: 'Unauthorized' });
   next();
 }, upload.single('image'), (req, res) => {
   const showId = req.params.showId;
   const show   = getOrCreateShow(showId);
-
   if (!req.file) return res.status(400).json({ error: 'No image file provided' });
-
-  // Cap library at 20 images per show (remove oldest)
   if (show.images.length >= 20) show.images.shift();
 
   const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
   const imageId = `img_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-
-  const entry = {
-    id:         imageId,
-    name:       req.file.originalname,
-    mimetype:   req.file.mimetype,
-    size:       req.file.size,
-    dataUrl,
-    uploadedAt: Date.now(),
-  };
-
+  const entry   = { id: imageId, name: req.file.originalname, mimetype: req.file.mimetype,
+                    size: req.file.size, dataUrl, uploadedAt: Date.now() };
   show.images.push(entry);
   console.log(`[IMG]  Uploaded "${entry.name}" (${Math.round(entry.size/1024)}KB) to "${showId}"`);
 
-  // Notify all connected directors of updated library
   directorNS.to(`directors:${showId}`).emit('image_library', show.images.map(img => ({
     id: img.id, name: img.name, uploadedAt: img.uploadedAt, thumb: img.dataUrl,
   })));
-
   res.json({ id: imageId, name: entry.name, size: entry.size });
 });
 
@@ -352,20 +364,27 @@ app.post('/api/upload/:showId', (req, res, next) => {
 //  REST ENDPOINTS
 // ─────────────────────────────────────────────
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', shows: shows.size, uptime: process.uptime() });
+  const mem = process.memoryUsage();
+  res.json({
+    status:   'ok',
+    shows:    shows.size,
+    uptime:   Math.round(process.uptime()),
+    memory: {
+      heapUsedMB:  Math.round(mem.heapUsed  / 1024 / 1024),
+      heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+      rssMB:       Math.round(mem.rss       / 1024 / 1024),
+    },
+    totalFans: [...shows.values()].reduce((n, s) => n + s.fans.size, 0),
+  });
 });
 
 app.get('/api/qr/:showId', async (req, res) => {
   try {
     const fanUrl = `${PUBLIC_URL}/fan.html?showId=${req.params.showId}`;
-    const qr     = await QRCode.toDataURL(fanUrl, {
-      width: 300, margin: 2,
-      color: { dark: '#0A2334', light: '#ffffff' }
-    });
+    const qr     = await QRCode.toDataURL(fanUrl, { width:300, margin:2,
+                     color:{ dark:'#0A2334', light:'#ffffff' } });
     res.json({ url: fanUrl, qr });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/show/:showId', (req, res) => {
@@ -396,33 +415,24 @@ function sanitizeCommand(cmd) {
     t:           Date.now(),
   };
 }
-
-function isValidHex(hex) {
-  return typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex);
-}
-
-function clamp(val, min, max) {
-  const n = parseInt(val);
-  return isNaN(n) ? min : Math.min(max, Math.max(min, n));
-}
-
+function isValidHex(hex) { return typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex); }
+function clamp(val, min, max) { const n = parseInt(val); return isNaN(n) ? min : Math.min(max, Math.max(min, n)); }
 function logCommand(show, type, cmd) {
   show.commandLog.unshift({ type, cmd, t: Date.now() });
   if (show.commandLog.length > 50) show.commandLog.pop();
 }
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ─────────────────────────────────────────────
 //  START
 // ─────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🏟️  NL REGIMENT LIGHTSHOW SERVER`);
-  console.log(`   Local:    http://localhost:${PORT}`);
+  console.log(`   Port:     ${PORT}`);
   console.log(`   Public:   ${PUBLIC_URL}`);
   console.log(`   Director: ${PUBLIC_URL}/director.html`);
   console.log(`   Fan page: ${PUBLIC_URL}/fan.html`);
-  console.log(`   Password: ${DIRECTOR_PASS}\n`);
+  console.log(`   Capacity: ${MAX_FANS} fans`);
+  console.log(`   Node:     ${process.version}`);
+  console.log(`   Memory:   ${Math.round(process.memoryUsage().heapTotal/1024/1024)}MB heap\n`);
 });
