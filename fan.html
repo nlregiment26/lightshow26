@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A2334">
+<title>NL Regiment — Light Up</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+@font-face { font-family:'NLRegiment'; src:url('/NLRegiment.otf') format('opentype'); }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0A2334; --maroon:#8A2433; --tan:#E0D0A6;
+  --white:#fff; --bg:#060f18; --dim:rgba(224,208,166,0.45);
+}
+html,body{
+  width:100%;height:100%;overflow:hidden;background:var(--bg);
+  color:var(--white);font-family:'Barlow',sans-serif;
+  touch-action:none;-webkit-tap-highlight-color:transparent;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── OVERLAY LAYERS ── */
+#brightness-layer{
+  position:fixed;inset:0;opacity:0;pointer-events:none;z-index:99;
+  transition:opacity 0.04s;
+}
+#brightness-layer.on{opacity:1;transition:none;}
+
+#sparkle-canvas{
+  position:fixed;inset:0;pointer-events:none;z-index:98;
+  opacity:0;transition:opacity 0.3s;
+}
+#sparkle-canvas.active{opacity:1;}
+
+/* ── IMAGE LAYER ── */
+#image-layer{
+  position:fixed;inset:0;z-index:95;
+  display:none;align-items:center;justify-content:center;
+  background:#000;
+}
+#image-layer.active{display:flex;}
+#image-display{
+  width:100%;height:100%;
+  object-fit:cover; /* overridden by JS */
+  object-position:center;
+}
+
+/* ── SCREENS ── */
+.screen{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:40px 28px;
+  opacity:0;pointer-events:none;
+  transition:opacity 0.5s ease;
+}
+.screen.active{opacity:1;pointer-events:all;}
+
+/* WELCOME */
+#screen-welcome{
+  background:radial-gradient(ellipse at 50% 10%,rgba(138,36,51,0.3) 0%,transparent 65%),var(--bg);
+}
+.regiment-wordmark{
+  display:flex;flex-direction:column;align-items:center;
+  margin-bottom:24px;animation:fade-up 0.8s ease both;
+}
+.regiment-logo-img{
+  width:clamp(190px,55vw,250px);
+  height:auto;
+  filter:drop-shadow(0 4px 20px rgba(0,0,0,0.6));
+  animation:logo-float 4s ease-in-out infinite;
+}
+@keyframes logo-float{
+  0%,100%{transform:translateY(0px);}
+  50%{transform:translateY(-7px);}
+}
+.wordmark-sub{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:clamp(13px,3.8vw,18px);font-weight:700;
+  letter-spacing:0.3em;color:var(--tan);
+  text-transform:uppercase;margin-top:12px;
+  opacity:0.85;
+}
+@keyframes fade-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.divider{
+  display:flex;align-items:center;gap:12px;
+  width:100%;max-width:300px;margin-bottom:26px;
+  animation:fade-up 0.8s 0.15s ease both;
+}
+.divider-line{flex:1;height:1px;background:rgba(224,208,166,0.2);}
+.divider-icon{font-size:16px;opacity:0.5;}
+.welcome-desc{
+  font-size:14px;font-weight:300;color:rgba(255,255,255,0.5);
+  text-align:center;line-height:1.7;max-width:280px;
+  margin-bottom:36px;animation:fade-up 0.8s 0.2s ease both;
+}
+.btn-regiment{
+  background:var(--maroon);color:var(--white);border:none;
+  padding:16px 40px;
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:20px;letter-spacing:0.12em;text-transform:uppercase;
+  border-radius:2px;cursor:pointer;
+  width:100%;max-width:300px;position:relative;overflow:hidden;
+  transition:all 0.2s;box-shadow:0 4px 20px rgba(138,36,51,0.4);
+  animation:fade-up 0.8s 0.3s ease both;
+}
+.btn-regiment::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(224,208,166,0.15) 0%,transparent 50%);
+}
+.btn-regiment:active{transform:scale(0.97);}
+.permission-note{
+  margin-top:18px;font-size:10px;color:rgba(255,255,255,0.18);
+  text-align:center;line-height:1.6;max-width:260px;
+  animation:fade-up 0.8s 0.4s ease both;
+}
+
+/* PERMISSION */
+#screen-permission{
+  background:radial-gradient(ellipse at 50% 30%,rgba(138,36,51,0.12) 0%,transparent 60%),var(--bg);
+  gap:18px;
+}
+.perm-crest{
+  width:80px;height:80px;border-radius:50%;
+  border:1.5px solid rgba(224,208,166,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;background:rgba(10,35,52,0.6);
+  animation:ring-pulse 2.5s ease-in-out infinite;
+}
+@keyframes ring-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(224,208,166,0.2)}
+  50%{box-shadow:0 0 0 14px rgba(224,208,166,0)}
+}
+.perm-title{
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:30px;letter-spacing:0.08em;text-align:center;color:var(--tan);
+}
+.perm-body{font-size:13px;color:rgba(255,255,255,0.5);text-align:center;line-height:1.65;max-width:270px;}
+.perm-steps{
+  background:rgba(10,35,52,0.6);border:1px solid rgba(224,208,166,0.1);
+  border-radius:6px;padding:18px 22px;width:100%;max-width:300px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.perm-step{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.4;}
+.perm-step-num{
+  min-width:20px;height:20px;border-radius:50%;
+  background:var(--maroon);color:#fff;
+  font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;flex-shrink:0;
+}
+.ios-note{font-size:11px;color:rgba(255,255,255,0.22);text-align:center;max-width:260px;line-height:1.6;display:none;}
+
+/* CONNECTING */
+#screen-connecting{background:var(--bg);gap:20px;}
+.connecting-ring{
+  width:56px;height:56px;border-radius:50%;
+  border:2px solid rgba(224,208,166,0.1);border-top-color:var(--tan);
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.connecting-text{font-family:'NLRegiment','Barlow Condensed',sans-serif;font-size:26px;letter-spacing:0.1em;color:var(--tan);}
+.connecting-sub{font-size:11px;color:var(--dim);letter-spacing:0.15em;text-transform:uppercase;}
+
+/* STANDBY */
+#screen-standby{background:radial-gradient(ellipse at 50% 50%,rgba(10,35,52,0.9) 0%,var(--bg) 70%);}
+.standby-logo{
+  width:clamp(60px,18vw,80px);height:auto;
+  opacity:0.7;margin-bottom:6px;
+  filter:drop-shadow(0 0 8px rgba(138,36,51,0.4));
+}
+.standby-emblem{position:relative;width:160px;height:160px;margin-bottom:32px;}
+.standby-emblem svg{width:100%;height:100%;animation:rotate 6s linear infinite;}
+@keyframes rotate{to{transform:rotate(360deg)}}
+.standby-center{
+  position:absolute;inset:20px;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  border-radius:50%;
+}
+.standby-pulse{
+  width:14px;height:14px;border-radius:50%;
+  background:var(--maroon);box-shadow:0 0 16px rgba(138,36,51,0.8);
+  animation:pulse-beat 1.5s ease-in-out infinite;
+}
+@keyframes pulse-beat{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+.standby-dot-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--dim);margin-top:6px;}
+.standby-title{
+  font-family:'NLRegiment','Barlow Condensed',sans-serif;
+  font-size:clamp(36px,10vw,50px);letter-spacing:0.06em;text-align:center;line-height:1;
+  color:var(--white);margin-bottom:10px;
+}
+.standby-sub{font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--dim);letter-spacing:0.2em;text-transform:uppercase;text-align:center;margin-bottom:44px;}
+.connected-badge{
+  background:rgba(10,35,52,0.8);border:1px solid rgba(224,208,166,0.2);
+  border-radius:100px;padding:9px 22px;
+  font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--tan);
+  letter-spacing:0.15em;text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;
+}
+.conn-live-dot{width:7px;height:7px;border-radius:50%;background:var(--maroon);box-shadow:0 0 8px rgba(138,36,51,0.8);animation:pulse-beat 1.5s ease-in-out infinite;}
+
+/* SHOW */
+#screen-show{background:#000;transition:background 0.08s;}
+.show-logo-watermark{
+  position:absolute;
+  width:clamp(55px,16vw,72px);height:auto;
+  top:18px;left:50%;transform:translateX(-50%);
+  opacity:0.12;
+  pointer-events:none;
+  filter:grayscale(1) brightness(2);
+}
+.show-center{display:flex;flex-direction:column;align-items:center;gap:20px;z-index:2;}
+.show-bars{display:flex;align-items:flex-end;gap:5px;height:52px;}
+.show-bar{width:5px;border-radius:3px;background:rgba(255,255,255,0.85);animation:bar-dance 1s ease-in-out infinite;}
+.show-bar:nth-child(1){height:18px;animation-delay:0s}
+.show-bar:nth-child(2){height:36px;animation-delay:0.1s}
+.show-bar:nth-child(3){height:26px;animation-delay:0.2s}
+.show-bar:nth-child(4){height:44px;animation-delay:0.05s}
+.show-bar:nth-child(5){height:20px;animation-delay:0.15s}
+.show-bar:nth-child(6){height:40px;animation-delay:0.25s}
+.show-bar:nth-child(7){height:14px;animation-delay:0.08s}
+@keyframes bar-dance{0%,100%{transform:scaleY(1);opacity:0.7}50%{transform:scaleY(1.5);opacity:1}}
+.show-name{font-family:'NLRegiment','Barlow Condensed',sans-serif;font-size:32px;letter-spacing:0.1em;color:rgba(255,255,255,0.9);}
+.show-effect{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.35);}
+
+/* ERROR */
+#screen-error{background:var(--bg);gap:20px;text-align:center;}
+.error-icon{font-size:48px;}
+.error-title{font-family:'NLRegiment','Barlow Condensed',sans-serif;font-size:30px;letter-spacing:0.08em;color:var(--tan);}
+.error-msg{font-size:13px;color:rgba(255,255,255,0.4);max-width:260px;line-height:1.6;}
+.btn-retry{background:rgba(138,36,51,0.15);border:1px solid rgba(138,36,51,0.4);color:var(--tan);padding:12px 28px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;}
+
+/* grain overlay */
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");pointer-events:none;z-index:200;opacity:0.6;}
+</style>
+</head>
+<body>
+
+<div id="brightness-layer"></div>
+<canvas id="sparkle-canvas"></canvas>
+
+<!-- IMAGE LAYER -->
+<div id="image-layer">
+  <img id="image-display" src="" alt="">
+</div>
+
+<!-- WELCOME -->
+<div class="screen active" id="screen-welcome">
+  <div class="regiment-wordmark">
+    <img class="regiment-logo-img" src="https://media.chl.ca/wp-content/uploads/sites/21/2025/04/11121824/nfl_regiment.png" alt="Newfoundland Regiment" onerror="this.src='/regiment-logo.png'">
+    <div class="wordmark-sub">Light Up</div>
+  </div>
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="divider-icon">🦌</div>
+    <div class="divider-line"></div>
+  </div>
+  <p class="welcome-desc">Be part of the show. Your phone joins thousands of others to light up the arena.</p>
+  <button class="btn-regiment" onclick="goToPermission()">Join The Show</button>
+  <p class="permission-note">Camera permission required to control your flashlight. No photos or video are ever taken.</p>
+</div>
+
+<!-- PERMISSION -->
+<div class="screen" id="screen-permission">
+  <div class="perm-crest">🔦</div>
+  <div class="perm-title">Flashlight Access</div>
+  <p class="perm-body">We need camera permission to control your flashlight in sync with the show.</p>
+  <div class="perm-steps">
+    <div class="perm-step"><div class="perm-step-num">1</div><div>Tap <strong>Allow</strong> below</div></div>
+    <div class="perm-step"><div class="perm-step-num">2</div><div>Tap <strong>Allow</strong> on the browser popup</div></div>
+    <div class="perm-step"><div class="perm-step-num">3</div><div>Hold your phone up and enjoy the show!</div></div>
+  </div>
+  <button class="btn-regiment" onclick="requestAndConnect()">Allow &amp; Join</button>
+  <p class="ios-note" id="ios-note">📱 iPhone? Add to Home Screen for full flashlight support.</p>
+</div>
+
+<!-- CONNECTING -->
+<div class="screen" id="screen-connecting">
+  <div class="connecting-ring"></div>
+  <div class="connecting-text">Connecting</div>
+  <div class="connecting-sub">Joining the show...</div>
+</div>
+
+<!-- STANDBY -->
+<div class="screen" id="screen-standby">
+  <img class="standby-logo" src="https://media.chl.ca/wp-content/uploads/sites/21/2025/04/11121824/nfl_regiment.png" alt="" onerror="this.src='/regiment-logo.png'">
+  <div class="standby-emblem">
+    <svg viewBox="0 0 160 160">
+      <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(224,208,166,0.06)" stroke-width="1.5"/>
+      <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(224,208,166,0.35)" stroke-width="1" stroke-dasharray="30 424" stroke-linecap="round"/>
+      <circle cx="80" cy="80" r="60" fill="none" stroke="rgba(138,36,51,0.2)" stroke-width="1" stroke-dasharray="8 20" stroke-linecap="round"/>
+    </svg>
+    <div class="standby-center">
+      <div class="standby-pulse"></div>
+      <div class="standby-dot-label">Live</div>
+    </div>
+  </div>
+  <div class="standby-title">Get Ready</div>
+  <div class="standby-sub">Hold your phone up — show starts soon</div>
+  <div class="connected-badge">
+    <div class="conn-live-dot"></div>
+    <span>Connected to Show</span>
+  </div>
+</div>
+
+<!-- SHOW ACTIVE -->
+<div class="screen" id="screen-show">
+  <img class="show-logo-watermark" src="https://media.chl.ca/wp-content/uploads/sites/21/2025/04/11121824/nfl_regiment.png" alt="" onerror="this.src='/regiment-logo.png'">
+  <div class="show-center">
+    <div class="show-bars">
+      <div class="show-bar"></div><div class="show-bar"></div><div class="show-bar"></div>
+      <div class="show-bar"></div><div class="show-bar"></div><div class="show-bar"></div>
+      <div class="show-bar"></div>
+    </div>
+    <div class="show-name">Regiment Show</div>
+    <div class="show-effect" id="effect-label">Standing By</div>
+  </div>
+</div>
+
+<!-- ERROR -->
+<div class="screen" id="screen-error">
+  <div class="error-icon">📡</div>
+  <div class="error-title">Connection Lost</div>
+  <div class="error-msg" id="error-msg">Unable to connect. Check your WiFi connection.</div>
+  <button class="btn-retry" onclick="location.reload()">Try Again</button>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const showId = params.get('showId') || 'default';
+const sector = params.get('sector') || '0';
+const isIOS  = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+let socket = null, torchStream = null, torchTrack = null, hasTorch = false;
+let flashInterval = null, sparkleRafId = null, sparkleSpawnId = null, fadeRafId = null;
+let currentFlashColor = '#ffffff';
+let sparkles = [];
+
+// ── SCREENS ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+function goToPermission() {
+  if (isIOS) document.getElementById('ios-note').style.display = 'block';
+  showScreen('permission');
+}
+
+// ── ANDROID-OPTIMISED TORCH ──
+async function requestAndConnect() {
+  showScreen('connecting');
+  await initTorch();
+  connectSocket();
+}
+
+async function initTorch() {
+  const constraints = [
+    { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 } } },
+    { video: { facingMode: 'environment' } },
+    { video: true }
+  ];
+  for (const c of constraints) {
+    try {
+      if (torchStream) torchStream.getTracks().forEach(t => t.stop());
+      torchStream = await navigator.mediaDevices.getUserMedia(c);
+      torchTrack  = torchStream.getVideoTracks()[0];
+      const caps  = torchTrack.getCapabilities ? torchTrack.getCapabilities() : {};
+      hasTorch    = caps.torch === true;
+      if (hasTorch) {
+        await torchTrack.applyConstraints({ advanced: [{ torch: false }] });
+        return;
+      }
+    } catch(e) { continue; }
+  }
+  hasTorch = false;
+}
+
+async function setTorch(on) {
+  if (hasTorch && torchTrack) {
+    try { await torchTrack.applyConstraints({ advanced: [{ torch: on }] }); }
+    catch(e) { hasTorch = false; }
+  }
+  // Screen brightness fallback ONLY when no physical torch available
+  // (COLOR_HOLD handles its own screen colour directly)
+  if (!hasTorch) {
+    const bl = document.getElementById('brightness-layer');
+    bl.style.background = currentFlashColor;
+    if (on) bl.classList.add('on'); else bl.classList.remove('on');
+  }
+}
+
+// ── SPARKLE ENGINE ──
+const canvas = document.getElementById('sparkle-canvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function newSparkle(color) {
+  return {
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 3 + 1,
+    vx: (Math.random() - 0.5) * 2.5,
+    vy: (Math.random() - 0.5) * 2.5 - 0.5,
+    life: 1, decay: Math.random() * 0.018 + 0.008,
+    color, rot: Math.random() * Math.PI * 2,
+    rotV: (Math.random() - 0.5) * 0.12,
+    isStar: Math.random() > 0.4,
+  };
+}
+
+function drawSparkleFrame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  sparkles = sparkles.filter(s => s.life > 0.01);
+  sparkles.forEach(s => {
+    ctx.save();
+    ctx.globalAlpha = s.life;
+    ctx.fillStyle   = s.color;
+    ctx.shadowBlur  = 10; ctx.shadowColor = s.color;
+    ctx.translate(s.x, s.y); ctx.rotate(s.rot);
+    if (s.isStar) {
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const r = i % 2 === 0 ? s.size * 2.8 : s.size * 0.9;
+        i === 0 ? ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r) : ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+      }
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(0, 0, s.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    s.x += s.vx; s.y += s.vy; s.vy += 0.04;
+    s.life -= s.decay; s.rot += s.rotV;
+  });
+}
+
+// Visual sparkle loop (canvas animation — always runs during sparkle regardless of torch)
+function startSparkleVisual(color, duration) {
+  canvas.classList.add('active');
+  clearInterval(sparkleSpawnId);
+  sparkles = [];
+  let elapsed = 0;
+  sparkleSpawnId = setInterval(() => {
+    for (let i = 0; i < 14; i++) sparkles.push(newSparkle(color));
+    drawSparkleFrame();
+    elapsed += 16;
+    if (duration && elapsed >= duration) stopSparkleVisual();
+  }, 16);
+}
+
+function stopSparkleVisual() {
+  clearInterval(sparkleSpawnId);
+  const fade = setInterval(() => {
+    drawSparkleFrame();
+    if (sparkles.length === 0) {
+      clearInterval(fade);
+      canvas.classList.remove('active');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, 16);
+}
+
+// ── STAGGERED TORCH SPARKLE ──
+// Server sends per-fan parameters: flickerDelay, flickerCount, flickerInterval, flickerDuration
+// This fan fires its OWN unique torch pattern — feels like twinkling across the crowd.
+function doStaggeredTorchSparkle(cmd) {
+  const { flickerDelay=0, flickerCount=4, flickerInterval=200, flickerDuration=60 } = cmd;
+
+  setTimeout(async () => {
+    for (let i = 0; i < flickerCount; i++) {
+      // small jitter per flicker so even the same fan feels organic
+      const jitter = Math.floor(Math.random() * 40);
+      await setTorch(true);
+      await sleep(flickerDuration + jitter);
+      await setTorch(false);
+      if (i < flickerCount - 1) await sleep(flickerInterval + jitter);
+    }
+  }, flickerDelay);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── IMAGE LAYER ──
+function showImage(dataUrl, fit, bgColor) {
+  const layer = document.getElementById('image-layer');
+  const img   = document.getElementById('image-display');
+  img.src = dataUrl;
+  img.style.objectFit = fit || 'cover';
+  layer.style.background = bgColor || '#000';
+  layer.classList.add('active');
+}
+function hideImage() {
+  const layer = document.getElementById('image-layer');
+  layer.classList.remove('active');
+  document.getElementById('image-display').src = '';
+}
+
+// ── SOCKET.IO ──
+function connectSocket() {
+  socket = io('/fan', {
+    query: { showId, sector, device: isIOS ? 'ios' : 'android' },
+    reconnection: true, reconnectionAttempts: 15, reconnectionDelay: 1000,
+  });
+  socket.on('connect',    () => showScreen('standby'));
+  socket.on('show_state', s => { if (s.status === 'live') showScreen('show'); else showScreen('standby'); });
+  socket.on('command',    handleCommand);
+  socket.on('connect_error', () => showError('Could not reach show server. Check your WiFi.'));
+  socket.on('error', e => showError(e.message || 'Connection error.'));
+}
+function showError(msg) { document.getElementById('error-msg').textContent = msg; showScreen('error'); }
+
+// ── COMMAND HANDLER ──
+function handleCommand(cmd) {
+  clearInterval(flashInterval);
+  stopSparkleVisual();
+  hideImage();
+  // Always reset screen colour — COLOR_HOLD will re-apply its own
+  document.getElementById('brightness-layer').classList.remove('on');
+
+  if (cmd.type === 'SHOW_START') { showScreen('show'); return; }
+  if (cmd.type === 'SHOW_END')   { setTorch(false); showScreen('standby'); return; }
+
+  currentFlashColor = cmd.color || '#ffffff';
+  const el    = document.getElementById('screen-show');
+  const label = document.getElementById('effect-label');
+  const bl    = document.getElementById('brightness-layer');
+
+  // Helper: colour flash on screen (for devices without torch, or COLOR_HOLD)
+  function screenOn()  { bl.style.background = currentFlashColor; bl.classList.add('on'); }
+  function screenOff() { bl.classList.remove('on'); }
+
+  if (cmd.type === 'FLASH') {
+    label.textContent = 'Flash';
+    setTorch(true);
+    setTimeout(() => { setTorch(false); }, cmd.duration || 200);
+  }
+
+  if (cmd.type === 'STROBE') {
+    label.textContent = 'Strobe'; let on = false;
+    flashInterval = setInterval(() => {
+      on = !on; setTorch(on);
+    }, cmd.interval || 100);
+    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); }, cmd.duration);
+  }
+
+  if (cmd.type === 'WAVE') {
+    label.textContent = 'Wave';
+    setTimeout(() => {
+      setTorch(true);
+      setTimeout(() => { setTorch(false); }, cmd.duration || 600);
+    }, cmd.delay || 0);
+  }
+
+  if (cmd.type === 'COLOR_HOLD') {
+    // Only effect that intentionally floods the screen with colour
+    label.textContent = 'Color Hold';
+    setTorch(true);
+    screenOn();   // force screen colour regardless of torch status
+  }
+
+  if (cmd.type === 'HEARTBEAT') {
+    label.textContent = 'Heartbeat'; let beat = 0;
+    const doBeat = () => {
+      setTorch(true);
+      setTimeout(() => { setTorch(false); }, 80);
+    };
+    doBeat();
+    flashInterval = setInterval(() => { beat++; setTimeout(doBeat, beat % 2 === 0 ? 0 : 120); }, 700);
+    if (cmd.duration) setTimeout(() => { clearInterval(flashInterval); setTorch(false); }, cmd.duration);
+  }
+
+  if (cmd.type === 'SPARKLE') {
+    label.textContent = 'Sparkle';
+    startSparkleVisual(currentFlashColor, cmd.duration || 6000);
+    doStaggeredTorchSparkle(cmd);
+  }
+
+  if (cmd.type === 'BLACKOUT') {
+    label.textContent = 'Blackout';
+    setTorch(false);
+    screenOff();
+  }
+
+  // ── IMAGE ──
+  if (cmd.type === 'IMAGE') {
+    label.textContent = 'Image Display';
+    setTorch(false); screenOff();
+    showScreen('show');
+    showImage(cmd.dataUrl, cmd.fit, cmd.bgColor);
+  }
+}
+
+// Wake lock
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) try { await navigator.wakeLock.request('screen'); } catch(e) {}
+}
+requestWakeLock();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestWakeLock();
+});
+</script>
+</body>
+</html>
